@@ -1,4 +1,20 @@
 services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://fortiinv:${PGPASSWORD:-fortiinv}@postgres:5432/fortiinv
+      ENABLE_PUSH: ${ENABLE_PUSH:-}
+      FGT_MASTER_KEY: ${FGT_MASTER_KEY:-}
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+    volumes:
+      - appdata:/app/data
+      - backups:/app/backups
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -6,6 +22,11 @@ services:
       POSTGRES_DB: fortiinv
       POSTGRES_USER: fortiinv
       POSTGRES_PASSWORD: ${PGPASSWORD:-fortiinv}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fortiinv -d fortiinv"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -13,3 +34,5 @@ services:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
 volumes:
   pgdata:
+  appdata:
+  backups:
