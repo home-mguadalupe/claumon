@@ -25,10 +25,38 @@ npm start
 Open <http://127.0.0.1:3000>, add a firewall (host, HTTPS port, API key), click
 **Test**, then **Backup**.
 
-### With the inventory database
+### With Docker
+
+Runs the app and the inventory database together; only Docker is needed.
 
 ```bash
-docker compose up -d        # PostgreSQL 16; db/schema.sql is applied on first start
+docker compose up -d --build
+```
+
+Open <http://127.0.0.1:3000>. The port is published on `127.0.0.1` only. Use
+`PORT=8080 docker compose up -d` for another host port. Set `PGPASSWORD`,
+`ENABLE_PUSH` or `FGT_MASTER_KEY` in the shell or in a `.env` file next to
+`docker-compose.yml` (URL-safe characters only in `PGPASSWORD`).
+
+`data/` (master key, push log) and `backups/` live in the `appdata` and `backups`
+volumes, and the database in `pgdata`. `docker compose down` keeps them;
+`docker compose down -v` **deletes them**, including the master key. Without
+that key, the stored API keys can't be decrypted. To copy the key out:
+
+```bash
+docker compose cp app:/app/data/master.key ./master.key
+```
+
+To load existing backup files from inside the container:
+
+```bash
+docker compose exec app sh -c 'node scripts/ingest.js backups/*.conf'
+```
+
+### With the inventory database (without Docker for the app)
+
+```bash
+docker compose up -d postgres   # PostgreSQL 16; db/schema.sql is applied on first start
 DATABASE_URL=postgres://fortiinv:fortiinv@127.0.0.1:5432/fortiinv npm start
 ```
 
