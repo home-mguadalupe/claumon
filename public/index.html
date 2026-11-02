@@ -1,0 +1,2400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FortiGate Backup</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23c8102e' d='M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='m8.5 12 2.5 2.5 4.5-5'/%3E%3C/svg%3E">
+<script>
+  // Apply the saved theme before first paint (no light flash in dark mode).
+  try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+</script>
+<style>
+  :root {
+    color-scheme: light;
+    --bg:#f4f6f9; --surface:#fff; --surface-2:#f1f4f7; --fg:#18212b; --muted:#56606b; --line:#dfe4ea; --line-strong:#c3ccd5;
+    --accent:#c8102e; --accent-hover:#a30d25; --accent-soft:#fdeef0; --accent-fg:#fff; --link:#b00e29;
+    --ok:#17733a; --ok-soft:#e4f3e9; --warn:#9a6700; --err:#b42318; --err-soft:#fdecea;
+    --hl:#ffe27a; --focus:#2563eb; --focus-ring:rgb(37 99 235 / .3);
+    --header:#131920; --header-fg:#f5f7fa; --header-muted:#b6c0ca; --header-line:#2b343e;
+    --shadow:0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .07);
+    --radius:10px; --radius-sm:6px;
+    --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:#0e1318; --surface:#161c23; --surface-2:#1d252e; --fg:#e5eaef; --muted:#9ba7b3; --line:#29323c; --line-strong:#3b4652;
+    --accent:#d9213c; --accent-hover:#ef3550; --accent-soft:#3a1820; --accent-fg:#fff; --link:#ff7b8a;
+    --ok:#56c779; --ok-soft:#14301f; --warn:#e3b341; --err:#ff8077; --err-soft:#3a1714;
+    --hl:#7a6510; --focus:#6aa8ff; --focus-ring:rgb(106 168 255 / .35);
+    --header:#0a0e12; --header-fg:#f5f7fa; --header-muted:#a3aeb9; --header-line:#252d36;
+    --shadow:0 1px 2px rgb(0 0 0 / .4);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:#0e1318; --surface:#161c23; --surface-2:#1d252e; --fg:#e5eaef; --muted:#9ba7b3; --line:#29323c; --line-strong:#3b4652;
+      --accent:#d9213c; --accent-hover:#ef3550; --accent-soft:#3a1820; --accent-fg:#fff; --link:#ff7b8a;
+      --ok:#56c779; --ok-soft:#14301f; --warn:#e3b341; --err:#ff8077; --err-soft:#3a1714;
+      --hl:#7a6510; --focus:#6aa8ff; --focus-ring:rgb(106 168 255 / .35);
+      --header:#0a0e12; --header-fg:#f5f7fa; --header-muted:#a3aeb9; --header-line:#252d36;
+      --shadow:0 1px 2px rgb(0 0 0 / .4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--fg); -webkit-font-smoothing:antialiased; }
+  a { color:var(--link); text-underline-offset:2px; }
+  :focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+  .skip { position:absolute; left:12px; top:-60px; z-index:10; padding:8px 14px; border-radius:var(--radius-sm); background:var(--surface); color:var(--fg); box-shadow:var(--shadow); }
+  .skip:focus { top:10px; }
+
+  /* ---------- header ---------- */
+  header { background:var(--header); color:var(--header-fg); padding:0 24px; display:flex; flex-wrap:wrap; align-items:center; gap:4px 28px; }
+  header .brand { display:flex; align-items:center; gap:10px; font-size:17px; font-weight:650; letter-spacing:-.01em; padding:12px 0; }
+  header .brand svg { width:26px; height:26px; flex:none; }
+  header nav { display:flex; gap:2px; overflow-x:auto; scrollbar-width:none; }
+  header nav a { display:flex; align-items:center; color:var(--header-muted); text-decoration:none; padding:17px 12px 14px; border-bottom:3px solid transparent; white-space:nowrap; transition:color .15s; }
+  header nav a:hover { color:var(--header-fg); }
+  header nav a[aria-current="page"] { color:var(--header-fg); border-bottom-color:var(--accent); font-weight:600; }
+  header nav a:focus-visible { outline-offset:-4px; border-radius:6px; }
+  header nav .count { display:inline-block; min-width:20px; padding:0 6px; margin-left:7px; border-radius:10px; background:var(--header-line); color:var(--header-fg); font-size:11px; font-weight:600; line-height:18px; text-align:center; }
+  .theme-btn { margin-left:auto; display:inline-grid; place-items:center; width:36px; height:36px; padding:0; border:1px solid var(--header-line); border-radius:8px; background:transparent; color:var(--header-fg); }
+  .theme-btn:hover { background:var(--header-line); }
+  .theme-btn svg { width:18px; height:18px; }
+  :root .theme-btn .sun, :root[data-theme="dark"] .theme-btn .moon { display:none; }
+  :root[data-theme="dark"] .theme-btn .sun { display:block; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-btn .moon { display:none; }
+    :root:not([data-theme="light"]) .theme-btn .sun { display:block; }
+  }
+
+  /* ---------- layout + base controls ---------- */
+  main { max-width:1100px; margin:0 auto; padding:24px 16px 48px; }
+  main:focus { outline:none; }
+  main.wide { max-width:1800px; }
+  .view { display:grid; gap:20px; }
+  .view[hidden] { display:none; }
+  section, .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; min-width:0; box-shadow:var(--shadow); }
+  h1, h2, h3 { letter-spacing:-.01em; }
+  h2 { margin:0 0 14px; font-size:16px; font-weight:650; }
+  .head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; }
+  .head h2 { margin:0; }
+  form { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; align-items:end; }
+  label { display:grid; gap:5px; font-size:12.5px; font-weight:500; color:var(--muted); }
+  input:not([type=checkbox]), select {
+    height:36px; padding:0 10px; border:1px solid var(--line-strong); border-radius:var(--radius-sm);
+    background:var(--surface); color:var(--fg); font:inherit; font-weight:400; transition:border-color .15s, box-shadow .15s;
+  }
+  input:not([type=checkbox]):hover, select:hover { border-color:var(--muted); }
+  input:not([type=checkbox]):focus, select:focus { outline:2px solid transparent; border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring); }
+  input::placeholder { color:var(--muted); opacity:.8; }
+  select:disabled, input:disabled { opacity:.6; cursor:not-allowed; }
+  input[type=checkbox] { width:16px; height:16px; margin:0; accent-color:var(--accent); cursor:pointer; flex:none; }
+  label.check { display:flex; align-items:center; gap:8px; color:var(--fg); font-weight:400; font-size:13.5px; cursor:pointer; min-height:36px; }
+  button {
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; padding:0 14px;
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--fg); border-radius:var(--radius-sm);
+    cursor:pointer; font:inherit; font-weight:500; white-space:nowrap; transition:background .15s, border-color .15s;
+  }
+  button:hover { background:var(--surface-2); border-color:var(--muted); }
+  button.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+  button.primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
+  button.danger:hover { color:var(--err); border-color:var(--err); background:var(--err-soft); }
+  button.small { height:30px; padding:0 10px; font-size:12.5px; }
+  button:disabled { opacity:.55; cursor:progress; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:11.5px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
+  tbody tr:last-child > td { border-bottom:none; }
+  td.actions { white-space:nowrap; }
+  td.actions > :not(:first-child) { margin-left:6px; }
+  #fwBody td, #bkBody td { vertical-align:middle; }
+  #fwBody tr:hover, #bkBody tr:hover { background:var(--surface-2); }
+  .status { font-size:12.5px; }
+  .ok { color:var(--ok); } .err { color:var(--err); }
+  .msg { margin-top:12px; font-size:13px; }
+  .msg.ok, .msg.err { padding:10px 12px; border-radius:var(--radius-sm); border:1px solid currentColor; }
+  .msg.ok { background:var(--ok-soft); } .msg.err { background:var(--err-soft); }
+  .empty, .muted { color:var(--muted); }
+  td.empty { text-align:center; padding:32px 12px; }
+  .wrap { overflow-x:auto; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin-bottom:14px; }
+  .toolbar label { min-width:170px; }
+  .toolbar label.check { min-width:0; }
+  .grow { flex:1; }
+  .mono { font-family:var(--mono); font-size:12.5px; }
+  .tag { display:inline-block; padding:0 7px; border-radius:5px; background:var(--surface-2); border:1px solid var(--line); font-size:11.5px; line-height:18px; white-space:nowrap; color:var(--fg); }
+  .down { color:var(--err); }
+  mark { background:var(--hl); color:inherit; border-radius:2px; padding:0 1px; }
+  kbd { font:11px var(--mono); border:1px solid var(--line-strong); border-bottom-width:2px; border-radius:4px; padding:0 4px; background:var(--surface-2); color:var(--fg); }
+  .loading { opacity:.45; pointer-events:none; transition:opacity .15s; }
+
+  /* ---------- page headers, pills, icon buttons ---------- */
+  .page-head { display:flex; flex-wrap:wrap; gap:10px 16px; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .page-head h2 { margin:0; }
+  .page-head .sub { margin-top:2px; color:var(--muted); font-size:13px; }
+  .page-head .btns { display:flex; flex-wrap:wrap; gap:8px; }
+  button svg, .iconlink svg, .searchbox svg { width:16px; height:16px; flex:none; }
+  button.ghost { border-color:transparent; background:transparent; }
+  button.ghost:hover { background:var(--surface-2); border-color:var(--line); }
+  .icon-btn { width:32px; padding:0 !important; }
+  .iconlink { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:var(--radius-sm); color:var(--muted); vertical-align:middle; }
+  .iconlink:hover { background:var(--surface-2); color:var(--fg); }
+  .pill { display:inline-flex; align-items:center; gap:5px; padding:0 9px; border-radius:999px; font-size:12px; font-weight:500; line-height:22px; background:var(--surface-2); color:var(--muted); text-decoration:none; white-space:nowrap; }
+  .pill.ok { background:var(--ok-soft); color:var(--ok); }
+  a.pill:hover { text-decoration:underline; }
+  .fwname b { display:block; font-weight:600; }
+  .fwname .mono { color:var(--muted); font-size:11.5px; }
+  .age { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; }
+  .age::before { content:""; width:8px; height:8px; border-radius:50%; background:currentColor; flex:none; }
+  .age.fresh { color:var(--ok); } .age.stale { color:var(--warn); } .age.old, .age.never { color:var(--err); }
+  td.num { font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--muted); }
+
+  /* ---------- inventory ---------- */
+  .inv { display:grid; grid-template-columns:230px minmax(0, 1fr); gap:16px; align-items:start; }
+
+  /* section navigation (left) */
+  .secnav { position:sticky; top:16px; padding:10px; display:grid; gap:14px; }
+  .secnav h3 { margin:2px 10px 4px; font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+  .secnav ul { list-style:none; margin:0; padding:0; display:grid; gap:1px; }
+  .secnav button { position:relative; width:100%; height:34px; justify-content:space-between; gap:10px; padding:0 10px; border:none; border-radius:6px; background:none; color:var(--fg); font-weight:500; }
+  .secnav button:hover { background:var(--surface-2); }
+  .secnav button[aria-current="true"] { background:var(--accent-soft); color:var(--link); font-weight:650; }
+  .secnav button[aria-current="true"]::before { content:""; position:absolute; left:0; top:7px; bottom:7px; width:3px; border-radius:3px; background:var(--accent); }
+  .secnav button:disabled { color:var(--muted); opacity:.55; cursor:default; }
+  .secnav button:disabled:hover { background:none; }
+  .secnav button > span:first-child { display:flex; align-items:center; gap:9px; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .secnav button svg { width:16px; height:16px; color:var(--muted); }
+  .secnav button[aria-current="true"] svg { color:var(--accent); }
+  .secnav .count { min-width:24px; padding:0 7px; border-radius:10px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:500; line-height:18px; text-align:center; font-variant-numeric:tabular-nums; }
+  .secnav button[aria-current="true"] .count { background:var(--surface); color:var(--link); }
+  @media (max-width: 900px) {
+    .inv { grid-template-columns:minmax(0, 1fr); }
+    .secnav { position:static; display:flex; overflow-x:auto; gap:4px; padding:6px; }
+    .secnav h3 { display:none; }
+    .secnav ul { display:flex; gap:2px; }
+    .secnav button { width:auto; white-space:nowrap; }
+  }
+
+  /* firewall filter (popover with the device list) */
+  .fwfilter { position:relative; }
+  #fwBtn { height:34px; max-width:300px; gap:8px; }
+  #fwBtn .k { color:var(--muted); font-weight:400; }
+  #fwBtn .lbl { overflow:hidden; text-overflow:ellipsis; }
+  #fwBtn .chev { width:12px; height:12px; color:var(--muted); }
+  #fwBtn[aria-expanded="true"] { border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring); }
+  .popover { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:340px; max-width:calc(100vw - 32px); padding:10px; display:grid; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 14px 36px rgb(0 0 0 / .2); }
+  .popover[hidden] { display:none; }
+  .popover input[type=search] { width:100%; height:32px; }
+  .allrow { min-height:30px; padding:0 6px 6px; font-size:13px; border-bottom:1px solid var(--line); }
+  .devlist { display:grid; gap:1px; max-height:min(360px, 60vh); overflow:auto; margin:0; padding:0; list-style:none; }
+  .devlist .empty { padding:8px 6px; }
+  .dev { display:flex; align-items:center; gap:10px; padding:6px 6px 6px 10px; border-radius:6px; position:relative; }
+  .dev:hover { background:var(--surface-2); }
+  .dev.active { background:var(--accent-soft); }
+  .dev .pick { flex:1; display:grid; height:auto; padding:0 44px 0 0; border:none; background:none; text-align:left; justify-content:stretch; font-weight:400; white-space:nowrap; min-width:0; }
+  .dev .pick:hover { background:none; }
+  .dev .pick:focus-visible { outline-offset:3px; border-radius:4px; }
+  .dev b, .dev small { overflow:hidden; text-overflow:ellipsis; }
+  .dev b { font-size:13px; font-weight:600; }
+  .dev small { color:var(--muted); font-size:11.5px; }
+  .dev .only { position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:11.5px; font-weight:600; color:var(--link); opacity:0; }
+  .dev:hover .only, .dev .pick:focus-visible .only { opacity:1; }
+
+  .invmain { padding:0; overflow:hidden; }
+  .invhead { padding:14px 16px 10px; }
+  .invhead h2 { margin:0; font-size:19px; font-weight:700; display:flex; align-items:center; gap:10px; }
+  .invhead h2 .count { padding:0 8px; border-radius:10px; background:var(--surface-2); color:var(--muted); font-size:12px; font-weight:600; line-height:20px; font-variant-numeric:tabular-nums; }
+  .devinfo { margin-top:4px; font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:3px 6px; align-items:center; }
+  .devinfo .sep { opacity:.5; }
+  .devinfo a { display:inline-flex; align-items:center; gap:4px; }
+  .devinfo a svg { width:13px; height:13px; }
+  .filters { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:0 16px 12px; border-bottom:1px solid var(--line); }
+  .filters select { height:34px; max-width:240px; }
+  .searchbox { position:relative; }
+  .searchbox input { width:100%; padding-right:96px; }
+  label.searchbox .hint { position:absolute; right:10px; bottom:9px; font-size:12px; font-weight:400; color:var(--muted); pointer-events:none; }
+  .filters .searchbox { flex:1 1 240px; }
+  .filters .searchbox > svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
+  .filters .searchbox input { height:34px; padding-left:32px; }
+  .filters .searchbox .hint { position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--muted); pointer-events:none; }
+  #invWrap { max-height:calc(100vh - 200px); min-height:240px; overflow:auto; }
+  #invTable td { font-size:13px; padding:7px 12px; white-space:nowrap; }
+  #invTable .ell { display:block; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #invTable .more { display:block; }
+  #invTable td.w { white-space:normal; min-width:140px; max-width:300px; }
+  #invTable .clamp { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden; overflow-wrap:anywhere; }
+  #invTable thead th { position:sticky; top:0; z-index:1; background:var(--surface-2); padding:0; box-shadow:inset 0 -1px 0 var(--line); border-bottom:none; }
+  #invTable th .sort { width:100%; height:auto; justify-content:flex-start; gap:4px; padding:8px 12px; border:none; border-radius:0; background:none; color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit; }
+  #invTable th .sort:hover { color:var(--fg); }
+  #invTable th .sort:focus-visible { outline-offset:-2px; }
+  #invTable th[aria-sort="ascending"], #invTable th[aria-sort="descending"] { color:var(--fg); }
+  #invTable th .arrow { display:inline-block; width:10px; font-size:9px; }
+  #invTable tbody tr.item { cursor:pointer; }
+  #invTable tbody tr.item:nth-child(even) { background:color-mix(in srgb, var(--surface-2) 50%, transparent); }
+  #invTable tbody tr.item:hover { background:var(--surface-2); }
+  #invTable tbody tr.item:focus-visible { outline:2px solid var(--focus); outline-offset:-2px; }
+  #invTable tbody tr.item.open { background:var(--accent-soft); }
+  #invTable tbody tr.item.open > td:first-child { box-shadow:inset 3px 0 0 var(--accent); }
+  #invTable td > span.ok, #invTable td > span.down { display:inline-block; padding:0 8px; border-radius:999px; font-size:12px; font-weight:500; line-height:20px; }
+  #invTable td > span.ok { background:var(--ok-soft); } #invTable td > span.down { background:var(--err-soft); }
+  .more { color:var(--muted); font-size:12px; white-space:nowrap; }
+  .capped { padding:12px; color:var(--muted); font-size:13px; text-align:center; }
+  #invMsg { text-align:center; padding:48px 20px; }
+  #invTable td.emptystate { padding:56px 20px; text-align:center; color:var(--muted); white-space:normal; }
+  .emptystate svg { width:40px; height:40px; color:var(--line-strong); display:block; margin:0 auto 10px; }
+  .emptystate b { display:block; color:var(--fg); font-size:14px; margin-bottom:4px; }
+  .emptystate button { margin-top:14px; }
+  .invnote { padding:8px 16px; font-size:12px; color:var(--muted); border-top:1px solid var(--line); background:var(--surface-2); display:flex; flex-wrap:wrap; gap:4px 14px; }
+  .invnote:empty { display:none; }
+  .drawer-head .tools { display:flex; gap:4px; flex:none; }
+  .copied { color:var(--ok) !important; }
+
+  /* ---------- detail drawer ---------- */
+  .drawer { position:fixed; top:0; right:0; bottom:0; z-index:20; width:min(560px, 100vw); display:flex; flex-direction:column; background:var(--surface); border-left:1px solid var(--line); box-shadow:-16px 0 40px rgb(0 0 0 / .18); animation:slide-in .18s ease-out; }
+  .drawer[hidden] { display:none; }
+  @keyframes slide-in { from { transform:translateX(24px); opacity:0; } }
+  .drawer-head { display:flex; gap:12px; align-items:flex-start; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); }
+  .drawer-head .eyebrow { font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.06em; color:var(--link); }
+  .drawer-head h3 { margin:2px 0; font-size:17px; overflow-wrap:anywhere; }
+  .drawer-head h3:focus { outline:none; }
+  #detMeta { font-size:12px; color:var(--muted); }
+  .drawer-body { flex:1; overflow:auto; padding:16px 18px 32px; }
+  .kv { display:grid; grid-template-columns:minmax(110px, max-content) minmax(0, 1fr); gap:5px 16px; margin:0; font:12px/1.5 var(--mono); }
+  .kv dt { color:var(--muted); }
+  .kv dd { margin:0; overflow-wrap:anywhere; }
+  .kv pre { margin:0; white-space:pre-wrap; font:inherit; }
+  .xref { display:grid; gap:16px; }
+  .xref > div:not(:last-child) { padding-bottom:16px; border-bottom:1px solid var(--line); }
+  .xref h4 { margin:0 0 8px; font-size:11.5px; font-weight:650; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .xref ul { list-style:none; margin:0; padding:0; display:grid; gap:5px; font-size:12.5px; }
+  .xref li { display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline; }
+  .xref a { color:var(--link); cursor:pointer; font-weight:500; }
+  .xref .via { color:var(--muted); }
+
+  /* ---------- config search ---------- */
+  .results { display:grid; gap:12px; }
+  .results details { border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .results summary { padding:10px 14px; cursor:pointer; display:flex; gap:10px; align-items:center; background:var(--surface-2); }
+  .results details[open] summary { border-bottom:1px solid var(--line); }
+  .results summary a { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:6px; text-decoration:none; }
+  .results summary a:hover { background:var(--surface); }
+  .hit { display:grid; grid-template-columns:70px minmax(0, 1fr); gap:2px 12px; padding:8px 14px; border-bottom:1px solid var(--line); }
+  .hit:last-child { border-bottom:none; }
+  .hit .ln { color:var(--muted); text-align:right; font-family:var(--mono); font-size:12px; padding-top:1px; }
+  .hit code { font:12.5px/1.55 var(--mono); white-space:pre-wrap; word-break:break-all; }
+  .hit .ctx { color:var(--muted); }
+  .crumbs { grid-column:2; font-size:11.5px; color:var(--muted); }
+  .crumbs a { color:inherit; text-decoration:none; cursor:pointer; }
+  .crumbs a:hover, .crumbs a:focus-visible { color:var(--link); text-decoration:underline; }
+  .crumbs .e { color:var(--fg); }
+
+  /* ---------- push ---------- */
+  .banner { padding:10px 14px; border-radius:var(--radius-sm); border:1px solid currentColor; background:var(--err-soft); color:var(--err); font-size:13px; }
+  .banner code { font-family:var(--mono); }
+  .push { display:grid; grid-template-columns:280px minmax(0, 1fr); gap:24px; align-items:start; }
+  .push fieldset { margin:0; padding:0; border:none; min-width:0; display:grid; gap:12px; align-content:start; }
+  .push legend { padding:0; margin-bottom:12px; font-size:11px; font-weight:650; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+  .push .targets .devlist { max-height:min(340px, 50vh); border:1px solid var(--line); border-radius:var(--radius-sm); padding:4px; }
+  .push .targets .dev { padding:0 6px; }
+  .push .targets .dev label { flex:1; min-width:0; min-height:40px; }
+  .push .targets .dev label > span { display:grid; min-width:0; }
+  .push .hint2 { font-size:12px; color:var(--muted); }
+  .push .hint2:empty { display:none; }
+  .vdhead { display:flex; justify-content:space-between; align-items:center; min-height:24px; }
+  .vdhead button { height:24px; }
+  .vdlist { display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none; }
+  .vdlist .empty { font-weight:400; }
+  .vdlist label.vd { min-height:30px; padding:0 10px 0 8px; gap:7px; border:1px solid var(--line-strong); border-radius:999px; font-size:13px; }
+  .vdlist label.vd:hover { background:var(--surface-2); }
+  .vdlist label.vd.on { border-color:var(--accent); background:var(--accent-soft); }
+  .vdlist label.vd:focus-within { box-shadow:0 0 0 3px var(--focus-ring); }
+  .seg { display:flex; flex-wrap:wrap; gap:2px; padding:3px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; width:max-content; max-width:100%; }
+  .seg button { height:30px; border:1px solid transparent; background:none; font-size:13px; }
+  .seg button:hover { background:var(--surface); border-color:transparent; }
+  .seg button[aria-checked="true"] { background:var(--surface); border-color:var(--line); box-shadow:var(--shadow); font-weight:600; }
+  .puform { grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); align-items:start; }
+  .puform .wide { grid-column:1 / -1; }
+  .puform [hidden] { display:none; }
+  .puform label.check { align-self:end; }
+  .field { display:grid; gap:5px; font-size:12.5px; font-weight:500; color:var(--muted); }
+  .req::after { content:" *"; color:var(--err); }
+  .chips { display:flex; flex-wrap:wrap; gap:4px; align-items:center; min-height:36px; padding:3px 4px; border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); cursor:text; }
+  .chips:hover { border-color:var(--muted); }
+  .chips:focus-within { border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring); }
+  .chips input:not([type=checkbox]) { flex:1; min-width:140px; height:28px; padding:0 6px; border:none; box-shadow:none; background:transparent; }
+  .chips input:focus { box-shadow:none !important; }
+  .chip { display:inline-flex; align-items:center; gap:2px; height:26px; padding:0 2px 0 8px; border-radius:5px; background:var(--surface-2); border:1px solid var(--line); font-size:12.5px; font-weight:400; color:var(--fg); max-width:100%; }
+  .chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chip button { width:20px; height:20px; padding:0; border:none; background:none; color:var(--muted); font-size:15px; line-height:1; }
+  .chip button:hover { color:var(--err); background:none; }
+  .pubar { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; justify-content:space-between; padding-top:14px; border-top:1px solid var(--line); }
+  .pubar .btns { display:flex; gap:8px; }
+  .plan { display:grid; gap:14px; margin-top:16px; }
+  .plan[hidden] { display:none; }
+  pre.payload { margin:0; padding:12px 14px; font:12px/1.55 var(--mono); background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm); overflow:auto; max-height:360px; white-space:pre; }
+  .plan td, #puHist td { vertical-align:middle; }
+  .pill.err { background:var(--err-soft); color:var(--err); }
+  .pill.warn { background:color-mix(in srgb, var(--warn) 15%, transparent); color:var(--warn); }
+  .pill.info { background:color-mix(in srgb, var(--focus) 14%, transparent); color:var(--focus); }
+  #puHist td { font-size:13px; }
+  @media (max-width: 820px) {
+    .push { grid-template-columns:minmax(0, 1fr); }
+  }
+
+  @media (max-width: 600px) {
+    header { padding:0 12px; column-gap:12px; }
+    .theme-btn { order:1; }
+    header nav { order:2; flex:1 1 100%; margin:0 -12px; padding:0 4px; }
+    header nav a { padding:12px 10px 11px; }
+    main { padding:16px 12px 40px; }
+    section, .card { padding:16px; }
+    .toolbar label { min-width:0; flex:1 1 100%; }
+    .filters > * { flex:1 1 140px; }
+    .filters select, #fwBtn { max-width:none; width:100%; }
+    .filters .searchbox { flex-basis:100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition:none !important; animation:none !important; scroll-behavior:auto !important; }
+  }
+  @media (forced-colors: active) {
+    .dev.active, #invTable tbody tr.item.open { outline:2px solid Highlight; }
+    .secnav button[aria-current="true"] { outline:2px solid Highlight; }
+  }
+  .ipdev { margin:0 0 18px; border:1px solid var(--line); border-radius:var(--radius-sm); }
+  .ipdev > summary { cursor:pointer; padding:10px 12px; font-weight:600; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .ipdev > div { padding:0 12px 12px; }
+  .ipdev h3 { font-size:13px; margin:14px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .ipdev td { vertical-align:top; }
+  .m-exact { background:var(--ok-soft); color:var(--ok); }
+  .m-broader { opacity:.75; }
+  .ipvia { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="var(--accent)" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+    FortiGate Backup
+  </div>
+  <nav id="nav" aria-label="Main">
+    <a href="#firewalls" data-view="firewalls">Firewalls<span class="count" id="fwCount"></span></a>
+    <a href="#backups" data-view="backups">Backups<span class="count" id="bkCount"></span></a>
+    <a href="#inventory" data-view="inventory">Inventory<span class="count" id="invCount" hidden></span></a>
+    <a href="#iplookup" data-view="iplookup">IP lookup</a>
+    <a href="#push" data-view="push">Push</a>
+  </nav>
+  <button type="button" class="theme-btn" id="themeBtn" aria-label="Toggle dark theme">
+    <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
+  </button>
+</header>
+<main id="main" tabindex="-1">
+<div class="view" data-view="firewalls">
+  <section id="addSection" aria-labelledby="addTitle" hidden>
+    <div class="head">
+      <h2 id="addTitle">Add firewall</h2>
+      <button type="button" id="addClose">Close</button>
+    </div>
+    <form id="addForm">
+      <label>IP / Hostname<input type="text" name="host" required placeholder="192.168.1.99" autocomplete="off" spellcheck="false"></label>
+      <label>HTTPS port<input type="number" name="port" value="443" min="1" max="65535" inputmode="numeric"></label>
+      <label>API key<input type="password" name="apiKey" required autocomplete="off"></label>
+      <label class="check"><input type="checkbox" name="verifyTls"> Verify TLS cert</label>
+      <div style="display:flex; gap:8px">
+        <button type="button" id="testBtn">Test</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+    <div class="msg" id="addMsg" role="status" aria-live="polite"></div>
+  </section>
+
+  <section aria-labelledby="fwTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="fwTitle">Firewalls</h2>
+        <div class="sub" id="fwSub"></div>
+      </div>
+      <div class="btns">
+        <button type="button" id="backupAll" hidden>Back up all</button>
+        <button type="button" class="primary" id="addOpen"><span aria-hidden="true">+</span> Add firewall</button>
+      </div>
+    </div>
+    <div class="wrap">
+      <table>
+        <thead><tr><th scope="col">Firewall</th><th scope="col">Last backup</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody id="fwBody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="view" data-view="backups" hidden>
+  <section aria-labelledby="srTitle">
+    <h2 id="srTitle">Search configs</h2>
+    <div class="toolbar" role="search">
+      <label class="grow searchbox">Text to find
+        <input type="search" id="srQ" placeholder='e.g.  set subnet 10.1.  ·  "any"  ·  ENC  ·  */' autocomplete="off" spellcheck="false" aria-describedby="srMsg">
+        <span class="hint" aria-hidden="true"><kbd>/</kbd> to focus</span>
+      </label>
+      <label>Within config section<input type="search" id="srIn" placeholder="firewall address" spellcheck="false"></label>
+      <label>Lines below<input type="number" id="srAfter" value="0" min="0" max="100" style="width:90px" inputmode="numeric" title="Show this many lines after each match"></label>
+      <label>Backup<select id="srFile"><option value="@latest">Latest per device</option><option value="">All backups</option></select></label>
+      <label class="check"><input type="checkbox" id="srCase"> Match case</label>
+      <label class="check"><input type="checkbox" id="srRegex"> Regex</label>
+    </div>
+    <div id="srMsg" class="msg empty" style="margin:0 0 12px" role="status" aria-live="polite"></div>
+    <div id="srResults" class="results"></div>
+  </section>
+
+  <section aria-labelledby="bkTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="bkTitle">Backup files</h2>
+        <div class="sub" id="bkSub"></div>
+      </div>
+      <input type="search" id="bkFilter" placeholder="Filter by device or file…" aria-label="Filter backup files" spellcheck="false" style="width:min(280px, 100%)">
+    </div>
+    <div class="wrap">
+      <table>
+        <thead><tr><th scope="col">Device</th><th scope="col">Taken</th><th scope="col">Size</th><th scope="col">Inventory</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody id="bkBody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="view" data-view="inventory" hidden>
+  <section id="invMsg" class="empty" role="status"></section>
+  <div class="inv" id="invBody" hidden>
+    <nav class="secnav card" id="invTabs" aria-label="Inventory sections"></nav>
+    <section class="invmain" aria-labelledby="secTitle">
+      <div class="invhead">
+        <h2 id="secTitle"></h2>
+        <div class="devinfo" id="invDev"></div>
+      </div>
+      <div class="filters" role="search">
+        <div class="fwfilter" id="fwFilter">
+          <button type="button" id="fwBtn" aria-haspopup="true" aria-expanded="false" aria-controls="fwPop">
+            <span class="k">Firewall</span><span class="lbl" id="fwBtnLabel"></span>
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="popover" id="fwPop" role="group" aria-label="Choose firewalls" hidden>
+            <input type="search" id="devFilter" placeholder="Filter firewalls…" spellcheck="false" aria-label="Filter firewalls">
+            <label class="check allrow"><input type="checkbox" id="devAll"> <span id="devAllLabel">All firewalls</span></label>
+            <ul class="devlist" id="devList" aria-label="Firewalls"></ul>
+          </div>
+        </div>
+        <select id="invSnap" aria-label="Snapshot" title="Snapshot"></select>
+        <select id="invVdom" aria-label="VDOM" title="VDOM"></select>
+        <div class="searchbox">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="search" id="invSearch" placeholder="Search name, IP, interface, comment…" aria-label="Search inventory" autocomplete="off" spellcheck="false">
+          <span class="hint" id="invHits" role="status" aria-live="polite"><kbd>/</kbd> to focus</span>
+        </div>
+        <button type="button" class="ghost" id="invClear" hidden>Clear filters</button>
+      </div>
+      <div id="invWrap" tabindex="-1" aria-labelledby="secTitle">
+        <table id="invTable"><caption class="sr-only" id="invCaption"></caption><thead></thead><tbody></tbody></table>
+      </div>
+      <div class="invnote" id="invNote"></div>
+    </section>
+  </div>
+  <aside class="drawer" id="invDetail" aria-labelledby="detTitle" hidden>
+    <div class="drawer-head">
+      <div>
+        <div class="eyebrow" id="detKind"></div>
+        <h3 id="detTitle" tabindex="-1"></h3>
+        <div id="detMeta"></div>
+      </div>
+      <div class="tools">
+      <button type="button" class="ghost icon-btn" id="detCopy" aria-label="Copy name" title="Copy name"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg></button>
+      <button type="button" class="ghost icon-btn" id="detClose" aria-label="Close details" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+    <div class="drawer-body" id="detBody"></div>
+  </aside>
+</div>
+<div class="view" data-view="push" hidden>
+  <div class="banner" id="puOff" role="note" hidden>
+    Pushing is disabled on this server: <b>Preview</b> works (it only reads from the firewalls), <b>Push</b> does not.
+    Restart the server with <code>ENABLE_PUSH=1</code> to allow changes. The app has no login, so only enable it where
+    nobody else can reach it.
+  </div>
+  <section aria-labelledby="puTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="puTitle">Push configuration</h2>
+        <div class="sub">Create or update addresses, services, groups and policies on one or more firewalls. Preview first, then push.</div>
+      </div>
+    </div>
+    <div class="push">
+      <fieldset class="targets">
+        <legend>1 · Target</legend>
+        <input type="search" id="puFwFilter" placeholder="Filter firewalls…" aria-label="Filter firewalls" spellcheck="false">
+        <label class="check allrow"><input type="checkbox" id="puAll"> <span id="puAllLabel">All shown</span></label>
+        <ul class="devlist" id="puFwList" aria-label="Firewalls"></ul>
+        <div class="field">
+          <div class="vdhead"><span id="puVdomL">VDOMs</span><button type="button" class="ghost small" id="puVdomAll" hidden>All</button></div>
+          <ul class="vdlist" id="puVdoms" aria-labelledby="puVdomL" aria-describedby="puVdomNote"></ul>
+        </div>
+        <div class="hint2" id="puVdomNote"></div>
+        <div class="hint2" id="puSugg" role="status" aria-live="polite"></div>
+      </fieldset>
+      <fieldset>
+        <legend>2 · Object</legend>
+        <div class="seg" role="radiogroup" aria-label="Object type" id="puTypes"></div>
+        <form class="puform" id="puForm" novalidate></form>
+        <div class="pubar">
+          <label class="check"><input type="checkbox" id="puUpdate"> Update the object if it already exists</label>
+          <div class="btns">
+            <button type="button" id="puPreview">Preview</button>
+            <button type="button" class="primary" id="puGo" disabled>Push</button>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+    <div class="msg" id="puMsg" role="status" aria-live="polite" hidden></div>
+    <div class="plan" id="puPlan" hidden></div>
+    <datalist id="pu-dl-interfaces"></datalist><datalist id="pu-dl-addresses"></datalist>
+    <datalist id="pu-dl-services"></datalist><datalist id="pu-dl-schedules"></datalist><datalist id="pu-dl-categories"></datalist>
+  </section>
+
+  <section aria-labelledby="puHistTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="puHistTitle">Recent pushes</h2>
+        <div class="sub">Every push is logged in <span class="mono">data/push-log.jsonl</span>.</div>
+      </div>
+    </div>
+    <div class="wrap">
+      <table>
+        <thead><tr><th scope="col">When</th><th scope="col">Firewall</th><th scope="col">VDOM</th><th scope="col">Object</th><th scope="col">Result</th></tr></thead>
+        <tbody id="puHist"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+<div class="view" data-view="iplookup" hidden>
+  <section aria-labelledby="ipTitle">
+    <h2 id="ipTitle">IP / network lookup</h2>
+    <form class="toolbar" role="search" id="ipForm">
+      <label class="grow searchbox">IP or network
+        <input type="search" id="ipQ" placeholder="10.1.2.3  ·  10.1.2.0/24  ·  10.1.2.0 255.255.255.0" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="check" title="Also list objects that contain it, e.g. 10.0.0.0/8 for 10.1.2.3"><input type="checkbox" id="ipBroader"> Include broader networks</label>
+      <label class="check" title="Search every snapshot, not only the latest per device"><input type="checkbox" id="ipAll"> All snapshots</label>
+      <button type="submit" class="primary">Search</button>
+    </form>
+    <div id="ipMsg" class="msg empty" style="margin:0 0 12px" role="status" aria-live="polite"></div>
+    <div class="toolbar" id="ipFilters" hidden>
+      <label>Firewall<select id="ipfFw"><option value="">All</option></select></label>
+      <label>VDOM<select id="ipfVdom"><option value="">All</option></select></label>
+      <label>Used as<select id="ipfField"><option value="">Source or destination</option><option value="srcaddr">Source</option><option value="dstaddr">Destination</option></select></label>
+      <label>Action<select id="ipfAction"><option value="">All</option><option>accept</option><option>deny</option></select></label>
+      <label>Status<select id="ipfStatus"><option value="">All</option><option value="enable">Enabled</option><option value="disable">Disabled</option></select></label>
+      <label>Match<select id="ipfMatch"><option value="">All</option><option>exact</option><option>inside</option><option>broader</option></select></label>
+      <label class="check"><input type="checkbox" id="ipfWithPol"> Only firewalls with policies</label>
+      <label class="grow">Text in policy<input type="search" id="ipfText" placeholder="ID, name, interface, service, object, comment…" spellcheck="false"></label>
+      <button type="button" id="ipfReset">Reset</button>
+    </div>
+    <div id="ipResults"></div>
+  </section>
+</div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const fmtDate = (d) => new Date(d).toLocaleString();
+const fmtShort = (d) => new Date(d).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+const fmtSize = (n) => n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+// "5 min ago", "3 h ago", "2 d ago"; older than two months shows the date.
+function ago(d) {
+  const s = (Date.now() - new Date(d)) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  if (s < 86400 * 60) return `${Math.floor(s / 86400)} d ago`;
+  return new Date(d).toLocaleDateString();
+}
+const safeName = (s) => String(s).replace(/[^a-zA-Z0-9._-]/g, '_');
+
+const SVG = {
+  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg>',
+};
+
+async function api(method, url, body, signal) {
+  const res = await fetch(url, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+    signal,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+const formData = () => {
+  const f = $('#addForm');
+  return {
+    host: f.host.value, port: f.port.value,
+    apiKey: f.apiKey.value, verifyTls: f.verifyTls.checked,
+  };
+};
+
+const describe = (i) => `${esc(i.hostname)} · ${esc(i.model || '')} · ${esc(i.version)} b${esc(i.build)} · SN ${esc(i.serial)}`;
+
+function setMsg(el, ok, html) {
+  el.className = (el.classList.contains('msg') ? 'msg ' : 'status ') + (ok ? 'ok' : 'err');
+  el.innerHTML = html;
+}
+
+async function busy(btn, fn) {
+  btn.disabled = true;
+  try { await fn(); } finally { btn.disabled = false; }
+}
+
+// Re-rendering with innerHTML drops keyboard focus; put it back on the element with the
+// same data-* identity so keyboard and screen reader users keep their place.
+const FOCUS_KEYS = ['key', 'col', 'dev', 'toggle', 'sec'];
+function keepFocus(el, render) {
+  const a = document.activeElement;
+  const k = el.contains(a) && FOCUS_KEYS.find((k) => a.dataset[k] != null);
+  const v = k && a.dataset[k];
+  render();
+  if (k) el.querySelector(`[data-${k}="${CSS.escape(v)}"]`)?.focus();
+}
+
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- theme ----------
+// Follows the OS until toggled; the choice is remembered in this browser.
+const isDark = () => (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+const syncThemeBtn = () => {
+  $('#themeBtn').setAttribute('aria-pressed', isDark());
+  $('#themeBtn').title = isDark() ? 'Switch to light theme' : 'Switch to dark theme';
+};
+$('#themeBtn').onclick = () => {
+  const t = isDark() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('theme', t); } catch {}
+  syncThemeBtn();
+};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeBtn);
+syncThemeBtn();
+
+// ---------- routing ----------
+// The hash holds the view plus its state, e.g. #inventory?dev=2&sec=vips&q=10.1
+// so links can be shared and the back button works.
+const VIEWS = ['firewalls', 'backups', 'inventory', 'iplookup', 'push'];
+const route = () => {
+  const [view, qs] = location.hash.slice(1).split('?');
+  return { view: VIEWS.includes(view) ? view : VIEWS[0], params: new URLSearchParams(qs) };
+};
+
+function setHash(view, params, push) {
+  const qs = [...params].filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const hash = `#${view}${qs ? '?' + qs : ''}`;
+  // Nav links return to the last state of each view.
+  $(`#nav a[data-view=${view}]`).href = hash;
+  if (route().view !== view || location.hash === hash) return;
+  history[push ? 'pushState' : 'replaceState'](null, '', hash);
+}
+
+function showView() {
+  const { view, params } = route();
+  document.querySelectorAll('.view').forEach((el) => { el.hidden = el.dataset.view !== view; });
+  document.querySelectorAll('#nav a').forEach((a) => {
+    if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  document.title = `${view[0].toUpperCase() + view.slice(1)} · FortiGate Backup`;
+  // Inventory tables and search results need more room.
+  $('main').classList.toggle('wide', !['firewalls', 'push'].includes(view));
+  document.title = view === 'iplookup' ? 'IP lookup · FortiGate Backup' : document.title;
+  if (view === 'inventory') applyInvState(params);
+  if (view === 'backups') applySearchState(params);
+  if (view === 'push') loadPushHistory();
+  if (view === 'iplookup') applyIpState(params);
+}
+window.addEventListener('popstate', showView);
+window.addEventListener('hashchange', showView);
+
+// "/" focuses the search box of the current view, Esc clears it.
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
+    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ' }[route().view];
+    if (box) { e.preventDefault(); $(box).focus(); $(box).select(); }
+  }
+  if (e.key === 'Escape' && e.target.type === 'search' && e.target.value) {
+    e.target.value = '';
+    e.target.dispatchEvent(new Event('input'));
+  } else if (e.key === 'Escape' && !$('#fwPop').hidden) {
+    toggleFwPop(false);
+    $('#fwBtn').focus();
+  } else if (e.key === 'Escape' && !$('#invDetail').hidden) {
+    closeDetail();
+  }
+});
+
+// ---------- firewalls ----------
+const toggleAdd = (open) => {
+  $('#addSection').hidden = !open;
+  $('#addOpen').hidden = open;
+  if (open) $('#addForm').host.focus();
+};
+$('#addOpen').onclick = () => toggleAdd(true);
+$('#addClose').onclick = () => toggleAdd(false);
+
+$('#testBtn').onclick =(e) => busy(e.target, async () => {
+  const msg = $('#addMsg');
+  msg.className = 'msg'; msg.textContent = 'Testing…';
+  try { setMsg(msg, true, '✔ Connected: ' + describe(await api('POST', '/api/test', formData()))); }
+  catch (err) { setMsg(msg, false, '✖ ' + esc(err.message)); }
+});
+
+$('#addForm').onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const fw = await api('POST', '/api/firewalls', formData());
+    e.target.reset();
+    setMsg($('#addMsg'), true, fw.autoName
+      ? `Saved as ${esc(fw.host)} — firewall not reachable, the name will be set from its hostname on the next Test or Backup.`
+      : `Saved as <b>${esc(fw.name)}</b>.`);
+    loadFirewalls();
+  } catch (err) { setMsg($('#addMsg'), false, '✖ ' + esc(err.message)); }
+};
+
+const fws = { list: [] };
+const bk = { list: [] };
+
+async function loadFirewalls() {
+  const list = fws.list = await api('GET', '/api/firewalls');
+  $('#fwCount').textContent = list.length;
+  $('#backupAll').hidden = !list.length;
+  if (!list.length) toggleAdd(true);
+  $('#fwBody').innerHTML = list.length ? list.map((f) => `
+    <tr data-id="${esc(f.id)}">
+      <td class="fwname"><b>${esc(f.name)}</b><span class="mono">${esc(f.host)}:${esc(f.port)}</span></td>
+      <td class="last"></td>
+      <td class="status" role="status" aria-live="polite"></td>
+      <td class="actions">
+        <button class="small" data-act="test" aria-label="Test ${esc(f.name)}">Test</button>
+        <button class="small" data-act="backup" aria-label="Back up ${esc(f.name)}">${SVG.download}Backup</button>
+        <button class="small ghost icon-btn danger" data-act="delete" aria-label="Delete ${esc(f.name)}" title="Delete">${SVG.trash}</button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="4" class="empty">No firewalls yet. Add one above to get started.</td></tr>';
+  renderLastBackups();
+  renderPushTargets();
+}
+
+// Newest backup of each firewall (the server names files "<name>_<host>_<time>.conf";
+// matched on the host, which survives renames). bk.list is sorted newest first.
+function renderLastBackups() {
+  let fresh = 0;
+  for (const f of fws.list) {
+    const cell = document.querySelector(`#fwBody tr[data-id="${CSS.escape(f.id)}"] .last`);
+    if (!cell) continue;
+    const b = bk.list.find((x) => x.file.includes(`_${safeName(f.host)}_`));
+    const hours = b ? (Date.now() - new Date(b.date)) / 36e5 : Infinity;
+    if (hours < 24) fresh++;
+    cell.innerHTML = b
+      ? `<span class="age ${hours < 24 ? 'fresh' : hours < 168 ? 'stale' : 'old'}" title="${esc(fmtDate(b.date))}">${ago(b.date)}</span>`
+      : '<span class="age never">never</span>';
+  }
+  $('#fwSub').textContent = fws.list.length
+    ? `${fws.list.length} firewall${fws.list.length === 1 ? '' : 's'} · ${fresh} backed up in the last 24 h` : '';
+}
+
+// Refreshes only the names (a test can fill in a hostname) so status messages stay visible.
+async function loadFirewallNames() {
+  fws.list = await api('GET', '/api/firewalls');
+  for (const f of fws.list) {
+    const cell = document.querySelector(`#fwBody tr[data-id="${CSS.escape(f.id)}"] .fwname b`);
+    if (cell) cell.textContent = f.name;
+  }
+}
+
+// refresh = false skips reloading inventory and backups (Back up all does that once at the end).
+function fwAction(btn, refresh = true) {
+  const row = btn.closest('tr');
+  const id = row.dataset.id;
+  const status = row.querySelector('.status');
+  return busy(btn, async () => {
+    status.className = 'status'; status.textContent = 'Working…';
+    try {
+      if (btn.dataset.act === 'test') {
+        setMsg(status, true, '✔ ' + describe(await api('POST', `/api/firewalls/${id}/test`)));
+        loadFirewallNames();
+      } else if (btn.dataset.act === 'backup') {
+        const r = await api('POST', `/api/firewalls/${id}/backup`);
+        setMsg(status, !r.ingest?.error, `✔ <a href="/api/backups/${encodeURIComponent(r.file)}">Saved</a> (${fmtSize(r.size)})`
+          + (r.ingest?.error ? ` · ✖ ${esc(r.ingest.error)}`
+            : r.ingest ? ` · <a href="#inventory?snap=${r.ingest.snapshotId}">view in inventory</a>` : ''));
+        if (refresh) {
+          await loadInventory();
+          loadBackups();
+        }
+      } else if (btn.dataset.act === 'delete') {
+        if (!confirm(`Delete ${row.querySelector('.fwname b').textContent}?`)) { status.textContent = ''; return; }
+        await api('DELETE', `/api/firewalls/${id}`);
+        loadFirewalls();
+      }
+    } catch (err) { setMsg(status, false, '✖ ' + esc(err.message)); }
+  });
+}
+
+$('#fwBody').onclick = (e) => {
+  const btn = e.target.closest('button[data-act]');
+  if (btn) fwAction(btn);
+};
+
+// Backs up every firewall, four at a time; each row shows its own result.
+$('#backupAll').onclick = () => busy($('#backupAll'), async () => {
+  const queue = [...document.querySelectorAll('#fwBody button[data-act=backup]')];
+  const total = queue.length;
+  let done = 0;
+  $('#backupAll').textContent = `Backing up… 0/${total}`;
+  const worker = async () => {
+    for (let b; (b = queue.shift());) {
+      await fwAction(b, false);
+      $('#backupAll').textContent = `Backing up… ${++done}/${total}`;
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  $('#backupAll').textContent = 'Back up all';
+  await loadInventory();
+  loadBackups();
+});
+
+// ---------- backups ----------
+async function loadBackups() {
+  const list = bk.list = await api('GET', '/api/backups');
+  $('#bkCount').textContent = list.length;
+  renderBackups();
+  renderLastBackups();
+
+  const cur = $('#srFile').value;
+  $('#srFile').innerHTML = '<option value="@latest">Latest per device</option><option value="">All backups</option>'
+    + list.map((b) => `<option value="${esc(b.file)}">${esc(b.file)}</option>`).join('');
+  $('#srFile').value = cur === '' || list.some((b) => b.file === cur) ? cur : '@latest';
+}
+
+function renderBackups() {
+  const f = $('#bkFilter').value.trim().toLowerCase();
+  const inDb = new Map(inv.snapshots.map((x) => [x.backup_file, x.id]));
+  const list = bk.list.filter((b) => !f || b.file.toLowerCase().includes(f));
+  const devices = new Set(bk.list.map((b) => b.file.split('_')[0])).size;
+  $('#bkSub').textContent = bk.list.length ? `${bk.list.length} files from ${devices} device${devices === 1 ? '' : 's'}` : '';
+  $('#bkBody').innerHTML = list.length ? list.map((b) => `
+    <tr data-file="${esc(b.file)}">
+      <td class="fwname"><b>${esc(b.file.split('_')[0])}</b><span class="mono">${esc(b.file)}</span></td>
+      <td><span title="${esc(fmtDate(b.date))}">${ago(b.date)}</span></td>
+      <td class="num">${fmtSize(b.size)}</td>
+      <td class="actions">${!inv.enabled ? '<span class="empty">—</span>'
+        : `${inDb.has(b.file) ? `<a class="pill ok" href="#inventory?snap=${inDb.get(b.file)}">✔ In inventory</a>` : '<span class="pill">Not loaded</span>'}
+           <button class="small ghost" data-act="ingest" aria-label="${inDb.has(b.file) ? 'Reload' : 'Load'} ${esc(b.file)} into inventory">${inDb.has(b.file) ? 'Reload' : 'Load'}</button>
+           <span class="status" role="status" aria-live="polite"></span>`}</td>
+      <td class="actions">
+        <a class="iconlink" href="/api/backups/${encodeURIComponent(b.file)}" title="Download" aria-label="Download ${esc(b.file)}">${SVG.download}</a>
+        <button class="small" data-act="search" aria-label="Search in ${esc(b.file)}">Search in file</button>
+      </td>
+    </tr>`).join('')
+    : `<tr><td colspan="5" class="empty">${bk.list.length ? 'No backup file matches the filter.' : 'No backups yet. Back up a firewall from the Firewalls tab.'}</td></tr>`;
+}
+$('#bkFilter').oninput = renderBackups;
+
+$('#bkBody').onclick = (e) => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const row = btn.closest('tr');
+  if (btn.dataset.act === 'search') {
+    $('#srFile').value = row.dataset.file;
+    $('#srQ').focus();
+    window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+    return runSearch();
+  }
+  const status = row.querySelector('.status');
+  busy(btn, async () => {
+    status.className = 'status'; status.textContent = 'Loading…';
+    try {
+      await api('POST', `/api/backups/${encodeURIComponent(row.dataset.file)}/ingest`);
+      await loadInventory();
+      loadBackups();
+    } catch (err) { setMsg(status, false, '✖ ' + esc(err.message)); }
+  });
+};
+
+// ---------- config search ----------
+const sr = { ctrl: null };
+
+const searchParams = () => new URLSearchParams({
+  q: $('#srQ').value, in: $('#srIn').value.trim(),
+  file: $('#srFile').value === '@latest' ? '' : $('#srFile').value,
+  latest: $('#srFile').value === '@latest' ? '1' : '',
+  regex: $('#srRegex').checked ? '1' : '', case: $('#srCase').checked ? '1' : '',
+  after: +$('#srAfter').value > 0 ? String(Math.min(100, Math.floor(+$('#srAfter').value))) : '',
+});
+
+function applySearchState(p) {
+  if (p.toString() === searchParams().toString()) return;
+  $('#srQ').value = p.get('q') || '';
+  $('#srIn').value = p.get('in') || '';
+  $('#srRegex').checked = p.get('regex') === '1';
+  $('#srCase').checked = p.get('case') === '1';
+  $('#srAfter').value = p.get('after') || 0;
+  // The file list may not be loaded yet; add the option so the value sticks.
+  const f = p.get('file') || '';
+  if (f && ![...$('#srFile').options].some((o) => o.value === f)) $('#srFile').add(new Option(f, f));
+  $('#srFile').value = f || (p.get('latest') === '1' || !p.has('latest') ? '@latest' : '');
+  runSearch();
+}
+
+// Wraps the given [start, end] ranges of a line in <mark>.
+function highlight(text, ranges) {
+  let out = '', pos = 0;
+  for (const [s, e] of ranges) {
+    if (s < pos) continue;
+    out += esc(text.slice(pos, s)) + '<mark>' + esc(text.slice(s, e)) + '</mark>';
+    pos = e;
+  }
+  return out + esc(text.slice(pos));
+}
+
+// Config path as breadcrumbs; clicking a config section limits the search to it.
+const crumbs = (path) => path.map((p) => p.t === 'edit'
+  ? `<span class="e">"${esc(p.v)}"</span>`
+  : `<a href="#" data-in="${esc(p.v)}" title="Search only in this section">${esc(p.v)}</a>`
+).join(' › ') || '<i>top level</i>';
+
+async function runSearch() {
+  const params = searchParams();
+  setHash('backups', params, false);
+  sr.ctrl?.abort();
+  const q = params.get('q');
+  if (!q) {
+    $('#srMsg').className = 'msg empty';
+    $('#srMsg').innerHTML = 'Type to search inside every backup. Special characters such as <span class="mono">" / * $ \\ # [ ]</span> match literally unless Regex is on. Matches show the line number and the config path they sit in; click a section in the path to search only there. Secret values are redacted.';
+    $('#srResults').innerHTML = '';
+    return;
+  }
+  sr.ctrl = new AbortController();
+  $('#srResults').classList.add('loading');
+  $('#srMsg').className = 'msg empty'; $('#srMsg').textContent = 'Searching…';
+  const t0 = performance.now();
+  let r;
+  try {
+    r = await api('GET', '/api/search?' + params, null, sr.ctrl.signal);
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    $('#srResults').classList.remove('loading');
+    $('#srResults').innerHTML = '';
+    return setMsg($('#srMsg'), false, '✖ ' + esc(err.message));
+  }
+  $('#srResults').classList.remove('loading');
+  const ms = Math.round(performance.now() - t0);
+  $('#srMsg').className = 'msg ' + (r.total ? '' : 'empty');
+  $('#srMsg').innerHTML = r.total
+    ? `<b>${r.total}</b> match${r.total === 1 ? '' : 'es'} in <b>${r.files.length}</b> of ${r.scanned} backup${r.scanned === 1 ? '' : 's'}`
+      + (r.truncated ? ` · showing the first ${r.shown} — narrow the search to see more` : '') + ` <span class="muted">· ${ms} ms</span>`
+    : `No matches in ${r.scanned} backup${r.scanned === 1 ? '' : 's'}.`;
+  $('#srResults').innerHTML = r.files.map((f) => `
+    <details open>
+      <summary><b class="grow">${esc(f.file)}</b>
+        <span class="tag">${f.count} match${f.count === 1 ? '' : 'es'}${f.matches.length < f.count ? `, ${f.matches.length} shown` : ''}</span>
+        <a href="/api/backups/${encodeURIComponent(f.file)}" title="Download" aria-label="Download ${esc(f.file)}"><span aria-hidden="true">⬇</span></a></summary>
+      ${f.matches.map((m) => `
+        <div class="hit">
+          <span class="ln">${m.line}</span>
+          <code>${highlight(m.text, m.ranges)}</code>
+          ${(m.after || []).map((c) => `<span class="ln">${c.line}</span><code class="ctx">${highlight(c.text, c.ranges)}</code>`).join('')}
+          <span class="crumbs">${crumbs(m.path)}</span>
+        </div>`).join('')}
+    </details>`).join('');
+}
+
+const runSearchSoon = debounce(runSearch, 250);
+$('#srQ').oninput = runSearchSoon;
+$('#srIn').oninput = runSearchSoon;
+$('#srAfter').oninput = runSearchSoon;
+$('#srFile').onchange = runSearch;
+$('#srRegex').onchange = runSearch;
+$('#srCase').onchange = runSearch;
+$('#srResults').onclick = (e) => {
+  const a = e.target.closest('a[data-in]');
+  if (!a) return;
+  e.preventDefault();
+  $('#srIn').value = a.dataset.in;
+  runSearch();
+};
+
+// ---------- inventory ----------
+const inv = {
+  enabled: false, snapshots: [], devices: [], selected: new Set(), snap: null, section: 'interfaces',
+  rows: [], open: new Set(), sort: null, cache: new Map(), loadId: 0,
+  xref: new Map(),  // "<section>:<row key>" -> correlation data of an opened row
+};
+// Policies / addresses run to tens of thousands per firewall: only this many rows are drawn.
+const MAX_ROWS = 1000;
+
+const arr = (v) => (Array.isArray(v) ? v.join(', ') : v ?? '');
+const tags = (v) => (v || []).map((x) => `<span class="tag">${esc(x)}</span>`).join(' ');
+const mono = (v) => (v ? `<span class="mono">${esc(v)}</span>` : '');
+const portMap = (r) => !r.portforward ? '' :
+  `${esc(r.protocol || 'tcp')} ${esc(r.extport)}${r.mappedport && r.mappedport !== r.extport ? ' → ' + esc(r.mappedport) : ''}`;
+// Load-balance VIPs keep their targets under "config realservers".
+const vipTargets = (r) => r.mappedip?.length ? r.mappedip
+  : Object.values(r.raw?.realservers || {}).map((x) => x.ip + (x.port ? ':' + x.port : ''));
+
+// Long name lists: first few, then "+N more" (the search still sees all of them).
+// Each name on its own line, cut with an ellipsis when long (full name on hover).
+const names = (v, n = 4) => !v?.length ? '' : v.slice(0, n).map((x) => `<span class="ell" title="${esc(x)}">${esc(x)}</span>`).join(' ')
+  + (v.length > n ? ` <span class="more">+${v.length - n} more</span>` : '');
+const usedBy = (r) => r.refs ? String(r.refs) : '<span class="down">unused</span>';
+const addrValue = (r) => r.subnet ? mono(r.subnet)
+  : r.start_ip ? mono(`${r.start_ip} – ${r.end_ip}`)
+  : r.fqdn ? mono(r.fqdn) : r.country ? esc(r.country) : '';
+
+// Service definition as one line: "tcp 80 443 · udp 53", "icmp type 8", "ip proto 47".
+function svcValue(r) {
+  const p = (r.protocol || 'TCP/UDP/SCTP').toUpperCase();
+  if (p === 'TCP/UDP/SCTP') {
+    return [['tcp', r.tcp_portrange], ['udp', r.udp_portrange], ['sctp', r.sctp_portrange]]
+      .filter(([, v]) => v?.length).map(([n, v]) => `${n} ${v.join(' ')}`).join(' · ');
+  }
+  if (p === 'ICMP' || p === 'ICMP6') {
+    return p.toLowerCase() + (r.icmptype != null ? ` type ${r.icmptype}` + (r.icmpcode != null ? ` code ${r.icmpcode}` : '') : ' any');
+  }
+  if (p === 'IP') return r.protocol_number ? `ip proto ${r.protocol_number}` : 'any';
+  return p.toLowerCase();
+}
+
+// Policy routes: subnets plus address objects; nothing set means any.
+const routeAddrs = (nets, objs) => [...(nets || []).map(mono), ...(objs || []).map(esc)].join('<br>') || '<span class="empty">any</span>';
+const PROTOCOLS = { 1: 'icmp', 6: 'tcp', 17: 'udp' };
+const routeService = (r) => !r.protocol ? '<span class="empty">any</span>'
+  : esc(PROTOCOLS[r.protocol] || `proto ${r.protocol}`) + (r.start_port != null && !(r.start_port === 1 && r.end_port === 65535)
+    ? ' ' + esc(r.start_port === r.end_port ? r.start_port : `${r.start_port}-${r.end_port}`) : '');
+
+// Management IP as a link to the firewall's web UI, on the HTTPS port saved in the Firewalls tab.
+function guiLink(host) {
+  if (!host) return '';
+  const port = fws.list?.find((f) => f.host === host)?.port;
+  const url = `https://${host.includes(':') ? `[${host}]` : host}${port && port !== 443 ? ':' + port : ''}/`;
+  return `<a class="mono" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="Open ${esc(url)} in a new tab">${esc(host)}</a>`;
+}
+
+// Column definitions per section: [header, render(row) -> html, searchable text(row)?]
+// `rows` sections are built from the snapshot list instead of being fetched.
+const SECTIONS = {
+  overview: { label: 'Firewalls', rows: (s) => [{
+    name: s.hostname, model: s.model, version: s.fw_version, build: s.fw_build, serial: s.serial,
+    // Snapshots of hand-exported files lack the IP: use one from another snapshot of the device.
+    host: s.host || inv.devices.find((d) => d.id === s.device_id)?.snaps.find((x) => x.host)?.host,
+    multi_vdom: s.multi_vdom, vdoms: s.vdoms || [], taken_at: s.taken_at,
+    raw: { hostname: s.hostname, model: s.model, serial: s.serial, 'management ip': s.host || 'unknown',
+      firmware: s.fw_version && `${s.fw_version} build ${s.fw_build}`, 'vdom mode': s.multi_vdom ? 'multi-vdom' : 'single vdom',
+      vdoms: s.vdoms, 'backup file': s.backup_file, 'taken at': fmtShort(s.taken_at) },
+  }], cols: [
+    ['Firewall', (r) => `<b>${esc(r.name)}</b>`],
+    ['Model', (r) => esc(r.model || '')],
+    ['Version', (r) => r.version ? `${esc(r.version)} <span class="empty">b${esc(r.build)}</span>` : ''],
+    ['Management IP', (r) => guiLink(r.host)],
+    ['Serial', (r) => mono(r.serial) || '<span class="empty">unknown</span>'],
+    ['VDOMs', (r) => r.multi_vdom ? `<b>${r.vdoms.length}</b> ` + tags(r.vdoms) : '<span class="empty">single VDOM</span>'],
+    // "2026-10-28 17:38" (local time) sorts correctly; the relative age is on hover.
+    ['Last backup', (r) => `<span title="${esc(ago(r.taken_at))}">${esc(new Date(r.taken_at).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }))}</span>`],
+  ]},
+  interfaces: { label: 'Interfaces', cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>${r.alias ? '<br><span class="empty">' + esc(r.alias) + '</span>' : ''}`],
+    ['Type', (r) => esc(r.type || '')],
+    ['IP', (r) => mono(r.ip) || (r.mode !== 'static' ? esc(r.mode) : '')],
+    ['Parent / VLAN', (r) => esc(r.parent || '') + (r.vlanid != null ? ` <span class="tag">vlan ${r.vlanid}</span>` : '')],
+    ['Access', (r) => tags(r.allowaccess)],
+    ['Role', (r) => esc(r.role || '')],
+    ['Status', (r) => `<span class="${r.status === 'down' ? 'down' : 'ok'}">${esc(r.status)}</span>`],
+    ['Description', (r) => esc(r.description || '')],
+  ]},
+  policies: { label: 'Policies', xref: (r) => r.policyid, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['ID', (r) => `<b>${r.policyid}</b>`],
+    ['Name', (r) => esc(r.name || '')],
+    ['From', (r) => tags(r.srcintf)],
+    ['To', (r) => tags(r.dstintf)],
+    ['Source', (r) => names(r.srcaddr)],
+    ['Destination', (r) => names(r.dstaddr)],
+    ['Service', (r) => names([...(r.service || []), ...(r.internet_service || [])])],
+    ['Action', (r) => `<span class="${r.action === 'accept' ? 'ok' : 'down'}">${esc(r.action)}</span>`],
+    ['NAT', (r) => r.nat ? esc(r.poolname ? arr(r.poolname) : 'interface') : ''],
+    ['Status', (r) => `<span class="${r.status === 'disable' ? 'empty' : 'ok'}">${esc(r.status)}</span>`],
+    ['Comments', (r) => esc(r.comments || '')],
+  ]},
+  addresses: { label: 'Addresses', xref: (r) => r.name, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['Type', (r) => esc(r.type)],
+    ['Value', addrValue],
+    ['Interface', (r) => esc(r.interface || '')],
+    ['Used by', usedBy],
+    ['Comment', (r) => esc(r.comment || '')],
+  ]},
+  addrgrps: { label: 'Address Groups', xref: (r) => r.name, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['Members', (r) => `<span class="tag">${r.members?.length || 0}</span> ` + names(r.members, 3)],
+    ['Used by', usedBy],
+    ['Comment', (r) => esc(r.comment || '')],
+  ]},
+  services: { label: 'Services', xref: (r) => r.name, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['Protocol', (r) => esc(r.protocol) + (r.proxy ? ' <span class="tag">proxy</span>' : '')],
+    ['Ports / type', (r) => mono(svcValue(r))],
+    ['Category', (r) => esc(r.category || '')],
+    ['Used by', usedBy],
+    ['Comment', (r) => esc(r.comment || '')],
+  ]},
+  servicegrps: { label: 'Service Groups', xref: (r) => r.name, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['Members', (r) => `<span class="tag">${r.members?.length || 0}</span> ` + names(r.members, 3)],
+    ['Used by', usedBy],
+    ['Comment', (r) => esc(r.comment || '')],
+  ]},
+  routepolicies: { label: 'Policy Routes', xref: (r) => r.seq_num, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Seq', (r) => `<b>${r.seq_num}</b>`],
+    ['Incoming', (r) => tags(r.input_device)],
+    ['Source', (r) => routeAddrs(r.src, r.srcaddr)],
+    ['Destination', (r) => routeAddrs(r.dst, r.dstaddr)],
+    ['Service', routeService],
+    ['Gateway', (r) => mono(r.gateway)],
+    ['Outgoing', (r) => esc(r.output_device || '')],
+    ['Action', (r) => `<span class="${r.action === 'deny' ? 'down' : 'ok'}">${esc(r.action)}</span>`],
+    ['Status', (r) => `<span class="${r.status === 'disable' ? 'empty' : 'ok'}">${esc(r.status)}</span>`],
+    ['Comments', (r) => esc(r.comments || '')],
+  ]},
+  phase1: { label: 'IPsec Phase 1', cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['Interface', (r) => esc(r.interface || '')],
+    ['Remote gateway', (r) => mono(r.remote_gw) || esc(r.type)],
+    ['IKE', (r) => `v${esc(r.ike_version)} ${r.ike_version === 1 ? esc(r.mode) : ''}`],
+    ['Proposal', (r) => tags(r.proposal)],
+    ['DH', (r) => esc(arr(r.dhgrp))],
+    ['Kind', (r) => esc(r.kind)],
+    ['Comments', (r) => esc(r.comments || '')],
+  ]},
+  phase2: { label: 'IPsec Phase 2', cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['Phase 1', (r) => esc(r.phase1name || '')],
+    ['Local', (r) => mono(r.src_subnet) || esc(r.src_name || '0.0.0.0/0')],
+    ['Remote', (r) => mono(r.dst_subnet) || esc(r.dst_name || '0.0.0.0/0')],
+    ['Proposal', (r) => tags(r.proposal)],
+    ['PFS / DH', (r) => esc(r.pfs) + (r.dhgrp ? ' · ' + esc(arr(r.dhgrp)) : '')],
+    ['Comments', (r) => esc(r.comments || '')],
+  ]},
+  vips: { label: 'VIPs', xref: (r) => r.name, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['External IP', (r) => mono(r.extip)],
+    ['Mapped to', (r) => vipTargets(r).map(mono).join('<br>')],
+    ['Ext. interface', (r) => esc(r.extintf || '')],
+    ['Port forward', portMap],
+    ['Type', (r) => esc(r.type)],
+    ['Used by', usedBy],
+    ['Comment', (r) => esc(r.comment || '')],
+  ], text: (r) => vipTargets(r).join(' ') },
+  ippools: { label: 'IP Pools', xref: (r) => r.name, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['Range', (r) => mono(r.startip === r.endip ? r.startip : `${r.startip} – ${r.endip}`)],
+    ['Type', (r) => esc(r.type)],
+    ['Source range', (r) => r.source_startip ? mono(`${r.source_startip} – ${r.source_endip}`) : ''],
+    ['Used by', usedBy],
+    ['Comments', (r) => esc(r.comments || '')],
+  ]},
+  sslvpn: { label: 'SSL-VPN', cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Status', (r) => `<span class="${r.status === 'disable' ? 'empty' : 'ok'}">${esc(r.status)}</span>`],
+    ['Port', (r) => esc(r.port ?? '')],
+    ['Listen on', (r) => tags(r.source_interface)],
+    ['Server cert', (r) => esc(r.servercert || '')],
+  ]},
+};
+
+function invMessage(html) {
+  $('#invMsg').innerHTML = html;
+  $('#invMsg').hidden = !html;
+  $('#invBody').hidden = !!html;
+}
+
+async function loadInventory() {
+  try {
+    inv.snapshots = await api('GET', '/api/inventory/snapshots');
+    inv.enabled = true;
+  } catch (err) {
+    inv.enabled = false;
+    return invMessage(esc(err.message));
+  }
+  inv.cache.clear();
+  inv.xref.clear();
+  // Snapshots arrive ordered by hostname, newest first.
+  const byDev = new Map();
+  for (const s of inv.snapshots) {
+    if (!byDev.has(s.device_id)) byDev.set(s.device_id, { id: s.device_id, hostname: s.hostname, model: s.model, serial: s.serial, snaps: [] });
+    byDev.get(s.device_id).snaps.push(s);
+  }
+  inv.devices = [...byDev.values()];
+  $('#invCount').hidden = !inv.devices.length;
+  $('#invCount').textContent = inv.devices.length;
+  if (!inv.devices.length) {
+    return invMessage('No backups loaded into the database yet — use "Load to DB" on a backup in the <a href="#backups">Backups</a> tab.');
+  }
+  invMessage('');
+  // Re-ingesting replaces snapshot ids, so fall back to the device's latest snapshot.
+  const p = route().view === 'inventory' ? route().params : invParams();
+  if (inv.snap && !inv.snapshots.some((s) => s.id === inv.snap.id)) p.delete('snap');
+  inv.selected = new Set();
+  inv.snap = null;
+  await applyInvState(p);
+}
+
+// Selected devices in list order.
+const selectedDevs = () => inv.devices.filter((d) => inv.selected.has(d.id));
+// One device: the chosen snapshot. Several: the latest snapshot of each.
+const activeSnaps = () => {
+  const devs = selectedDevs();
+  return devs.length === 1 ? [inv.snap] : devs.map((d) => d.snaps[0]);
+};
+const multi = () => inv.selected.size > 1;
+
+const invParams = () => {
+  const devs = selectedDevs();
+  const one = devs.length === 1 ? devs[0] : null;
+  return new URLSearchParams({
+    dev: devs.length > 1 && devs.length === inv.devices.length ? 'all' : devs.map((d) => d.id).join(','),
+    snap: one && inv.snap && inv.snap !== one.snaps[0] ? inv.snap.id : '',
+    sec: inv.section === 'interfaces' ? '' : inv.section, vdom: $('#invVdom').value, q: $('#invSearch').value,
+    sort: inv.sort ? `${inv.sort.col}${inv.sort.dir < 0 ? '-' : ''}` : '',
+  });
+};
+
+// Brings the page in line with URL parameters (initial load, back/forward, links).
+// dev= takes "all", one id, or a comma-separated list of ids.
+async function applyInvState(p) {
+  if (!inv.enabled || !inv.devices.length) return;
+  const snapId = Number(p.get('snap'));
+  const fromSnap = snapId && inv.devices.find((d) => d.snaps.some((s) => s.id === snapId));
+  const devParam = p.get('dev') || '';
+  let ids = fromSnap ? [fromSnap.id]
+    : devParam === 'all' ? inv.devices.map((d) => d.id)
+    : devParam.split(',').map(Number).filter((id) => inv.devices.some((d) => d.id === id));
+  if (!ids.length) ids = inv.selected.size ? [...inv.selected] : [inv.devices[0].id];
+  const selected = new Set(ids);
+  const one = selected.size === 1 ? inv.devices.find((d) => selected.has(d.id)) : null;
+  const snap = one ? one.snaps.find((s) => s.id === snapId) || one.snaps[0] : null;
+  const section = SECTIONS[p.get('sec')] ? p.get('sec') : 'interfaces';
+  const sort = /^(.+?)(-?)$/.exec(p.get('sort') || '');
+  const vdom = p.get('vdom') || '';
+
+  $('#invSearch').value = p.get('q') || '';
+  inv.sort = sort ? { col: sort[1], dir: sort[2] ? -1 : 1 } : null;
+  const same = selected.size === inv.selected.size && [...selected].every((id) => inv.selected.has(id))
+    && snap === inv.snap && section === inv.section && vdom === $('#invVdom').value;
+  if (same) return renderInventory();
+  inv.selected = selected;
+  inv.snap = snap;
+  inv.section = section;
+  await refreshSelection(vdom);
+}
+
+function renderDevices() {
+  const f = $('#devFilter').value.trim().toLowerCase();
+  const list = inv.devices.filter((d) => !f || [d.hostname, d.model, d.serial].join(' ').toLowerCase().includes(f));
+  const picked = list.filter((d) => inv.selected.has(d.id)).length;
+  $('#devAll').checked = list.length > 0 && picked === list.length;
+  $('#devAll').indeterminate = picked > 0 && picked < list.length;
+  $('#devAllLabel').textContent = f ? `All matching (${list.length})` : `All firewalls (${inv.devices.length})`;
+  const devs = selectedDevs();
+  $('#fwBtnLabel').textContent = !devs.length ? 'none' : devs.length === 1 ? devs[0].hostname
+    : devs.length === inv.devices.length ? `All (${devs.length})` : `${devs.length} selected`;
+  keepFocus($('#devList'), () => {
+    $('#devList').innerHTML = list.length ? list.map((d) => `
+    <li class="dev${inv.selected.has(d.id) ? ' active' : ''}">
+      <input type="checkbox" data-toggle="${d.id}"${inv.selected.has(d.id) ? ' checked' : ''} title="Add to / remove from selection" aria-label="Include ${esc(d.hostname)} in selection">
+      <button class="pick" data-dev="${d.id}" title="Show only this firewall"${inv.selected.size === 1 && inv.selected.has(d.id) ? ' aria-current="true"' : ''}>
+        <b>${esc(d.hostname)}</b>
+        <small title="${esc(d.serial ? 'SN ' + d.serial : '')}">${esc(d.model || '')} · ${ago(d.snaps[0].taken_at)}${d.snaps.length > 1 ? ` · ${d.snaps.length} snapshots` : ''}</small>
+        <span class="only" aria-hidden="true">only</span>
+      </button>
+    </li>`).join('') : '<li class="empty">No match.</li>';
+  });
+}
+
+// Updates header, snapshot and VDOM pickers for the current selection, then loads rows.
+async function refreshSelection(vdom = $('#invVdom').value) {
+  renderDevices();
+  const devs = selectedDevs();
+  if (!devs.length) {
+    $('#invDev').textContent = 'No firewall selected — choose one or more with the Firewall filter.';
+    $('#invSnap').innerHTML = '';
+    $('#invSnap').disabled = $('#invVdom').disabled = true;
+    inv.rows = [];
+    renderInventory();
+    return;
+  }
+  if (devs.length === 1) {
+    const d = devs[0], s = inv.snap ||= d.snaps[0];
+    $('#invDev').innerHTML = `<b>${esc(d.hostname)}</b><span class="sep" aria-hidden="true">·</span>` + [
+      s.model, s.fw_version && `FortiOS ${s.fw_version} b${s.fw_build}`,
+      s.serial ? 'SN ' + s.serial : 'SN unknown', s.multi_vdom ? `${s.vdoms.length} VDOMs` : 'single VDOM',
+    ].filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join('<span class="sep" aria-hidden="true">·</span>')
+      + `<span class="sep" aria-hidden="true">·</span><a href="/api/backups/${encodeURIComponent(s.backup_file)}" title="${esc(s.backup_file)}">${SVG.download}Download config</a>`;
+    $('#invSnap').innerHTML = d.snaps.map((x, i) => `
+      <option value="${x.id}"${x === s ? ' selected' : ''}>${fmtShort(x.taken_at)}${i === 0 ? ' (latest)' : ''}</option>`).join('');
+    $('#invSnap').disabled = d.snaps.length < 2;
+  } else {
+    inv.snap = null;
+    $('#invDev').innerHTML = `${devs.length === inv.devices.length ? 'All' : devs.length} firewalls, latest snapshot of each: `
+      + devs.slice(0, 8).map((d) => `<span class="tag">${esc(d.hostname)}</span>`).join(' ')
+      + (devs.length > 8 ? ` <span class="more">+${devs.length - 8} more</span>` : '');
+    $('#invSnap').innerHTML = '<option>Latest snapshot of each</option>';
+    $('#invSnap').disabled = true;
+  }
+  const vdoms = [...new Set(activeSnaps().flatMap((s) => s.vdoms))].sort(collator.compare);
+  $('#invVdom').innerHTML = '<option value="">All VDOMs</option>'
+    + vdoms.map((v) => `<option${v === vdom ? ' selected' : ''}>${esc(v)}</option>`).join('');
+  $('#invVdom').disabled = vdoms.length < 2;
+  await loadRows();
+}
+
+// Fetches the current section for every active snapshot (cached) and merges the rows.
+async function loadRows() {
+  inv.open.clear();
+  const snaps = activeSnaps();
+  const id = ++inv.loadId;
+  const sec = SECTIONS[inv.section];
+  const missing = sec.rows ? [] : snaps.filter((s) => !inv.cache.has(`${s.id}/${inv.section}`));
+  if (missing.length) {
+    renderTabs(null);
+    $('#invWrap').classList.add('loading');
+    $('#invWrap').setAttribute('aria-busy', 'true');
+    try {
+      await Promise.all(missing.map(async (s) => {
+        const key = `${s.id}/${inv.section}`;
+        inv.cache.set(key, await api('GET', `/api/inventory/snapshots/${key}`));
+      }));
+    } catch (err) {
+      if (id === inv.loadId) $('#invTable tbody').innerHTML = `<tr><td class="err">✖ ${esc(err.message)}</td></tr>`;
+      return;
+    } finally {
+      if (id === inv.loadId) {
+        $('#invWrap').classList.remove('loading');
+        $('#invWrap').removeAttribute('aria-busy');
+      }
+    }
+  }
+  // A newer click won the race; drop this result.
+  if (id !== inv.loadId) return;
+  // Search text is built once per load: filtering 100k+ rows on every keystroke stays fast.
+  const text = sec.text;
+  inv.rows = snaps.flatMap((s) => (sec.rows ? sec.rows(s) : inv.cache.get(`${s.id}/${inv.section}`)).map((r) => {
+    const row = { ...r, _fw: s.hostname, _snap: s.id };
+    row._text = (JSON.stringify(r) + ' ' + s.hostname + ' ' + (text?.(r) || '')).toLowerCase();
+    return row;
+  }));
+  // Columns empty in every row (e.g. policy names nobody set) are hidden; computed once per load.
+  inv.hidden = new Set(invCols().filter(([, fn], i) => i > 1 && !inv.rows.some((r) => stripTags(fn(r)))).map(([h]) => h));
+  renderInventory();
+}
+
+// 24x24 stroke icons for the sidebar.
+const SECTION_ICONS = {
+  overview: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
+  policies: 'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z',
+  routepolicies: 'M4 7h12m0 0-3-3m3 3-3 3M20 17H8m0 0 3-3m-3 3 3 3',
+  interfaces: 'M3 7h18v10H3zM7 11v2M11 11v2M15 11v2',
+  addresses: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
+  addrgrps: 'M12 3 3 8l9 5 9-5zM3 13l9 5 9-5',
+  services: 'M8 3v5M16 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
+  servicegrps: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  vips: 'M4 12h12m0 0-4-4m4 4-4 4M20 4v16',
+  ippools: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
+  phase1: 'M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3',
+  phase2: 'M11.5 12.5 20 4M17 7l2 2M8 20a4 4 0 1 1 0-8 4 4 0 0 1 0 8z',
+  sslvpn: 'M4 5h16v11H4zM8 20h8M12 16v4',
+};
+const icon = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="${d}"/></svg>`;
+
+// Sidebar groups; every key of SECTIONS appears once.
+const SECTION_GROUPS = [
+  ['Overview', ['overview']],
+  ['Firewall', ['policies', 'routepolicies']],
+  ['Network', ['interfaces']],
+  ['Objects', ['addresses', 'addrgrps', 'services', 'servicegrps', 'vips', 'ippools']],
+  ['VPN', ['phase1', 'phase2', 'sslvpn']],
+];
+
+function renderTabs(shown) {
+  const filtered = $('#invVdom').value || $('#invSearch').value.trim();
+  const snaps = inv.selected.size ? activeSnaps() : [];
+  const total = (k) => k === 'overview' ? snaps.length : snaps.reduce((n, s) => n + s[k], 0);
+  keepFocus($('#invTabs'), () => {
+    $('#invTabs').innerHTML = SECTION_GROUPS.map(([group, keys]) => `<div><h3 id="grp-${group}">${group}</h3><ul aria-labelledby="grp-${group}">${
+      keys.map((k) => `<li><button data-sec="${k}"${k === inv.section ? ' aria-current="true"' : ''}${total(k) ? '' : ' disabled'}>
+        <span>${icon(SECTION_ICONS[k])}${SECTIONS[k].label}</span><span class="count">${total(k)}</span></button></li>`).join('')}</ul></div>`).join('');
+  });
+  const n = total(inv.section);
+  $('#secTitle').innerHTML = `${SECTIONS[inv.section].label}<span class="count">${
+    filtered && shown != null ? `${shown} of ${n}` : n}</span>`;
+}
+
+// Cell text for sorting. A regex instead of the DOM parser: sorting may touch 100k+ cells.
+const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+const stripTags = (html) => html.replace(/<br>/g, ' ').replace(/<[^>]*>/g, '')
+  .replace(/&(amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e]).trim();
+const rowKey = (r) => `${r._snap}/${r.vdom}/${SECTIONS[inv.section].xref?.(r) ?? r.name ?? ''}`;
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+// Section columns, with a Firewall column first when several firewalls are shown.
+// Columns whose content may wrap; everything else stays on one line to keep rows compact.
+const WRAP_COLS = new Set(['VDOMs', 'Comments', 'Comment', 'Description', 'Access', 'Proposal', 'Listen on', 'Incoming', 'From', 'To']);
+const invCols = () => (multi() && inv.section !== 'overview' ? [['Firewall', (r) => `<b>${esc(r._fw)}</b>`]] : []).concat(SECTIONS[inv.section].cols);
+
+function renderInventory() {
+  const sec = SECTIONS[inv.section];
+  const cols = invCols().filter(([h]) => !inv.hidden?.has(h));
+  const vdom = $('#invVdom').value;
+  const q = $('#invSearch').value.trim().toLowerCase();
+  let rows = inv.rows.filter((r) => (!vdom || r.vdom === vdom || r.vdoms?.includes(vdom)) && (!q || r._text.includes(q)));
+  // Unsorted, an object named exactly like the search comes first ("all" before "all-users").
+  if (q && !inv.sort) {
+    const exact = (r) => String(r.name ?? '').toLowerCase() === q || r.uuid === q;
+    rows = [...rows.filter(exact), ...rows.filter((r) => !exact(r))];
+  }
+
+  const sortCol = inv.sort && cols.find(([h]) => h === inv.sort.col);
+  if (sortCol) {
+    const fn = sortCol[1];
+    // Sort on what the column shows; numeric-aware so 10.0.0.9 < 10.0.0.10. Empty cells go last.
+    rows = rows.map((r) => [stripTags(fn(r)), r])
+      .sort(([a], [b]) => (!a - !b) || inv.sort.dir * collator.compare(a, b))
+      .map(([, r]) => r);
+  }
+
+  renderTabs(rows.length);
+  $('#invHits').innerHTML = q ? `${rows.length} found` : '<kbd>/</kbd> to focus';
+  $('#invCaption').textContent = `${sec.label}: ${rows.length} row${rows.length === 1 ? '' : 's'}. `
+    + 'Column headers sort the table. Press Enter on a row to open its details.';
+  const ariaSort = (h) => inv.sort?.col !== h ? 'none' : inv.sort.dir > 0 ? 'ascending' : 'descending';
+  const filtered = !!(q || vdom);
+  $('#invClear').hidden = !filtered;
+  const [emptyTitle, emptyText] = !inv.selected.size ? ['No firewall selected', 'Choose one or more with the Firewall filter.']
+    : inv.rows.length ? ['No matches', 'Nothing here matches the current search or VDOM.']
+    : [`No ${sec.label.toLowerCase()}`, 'The selected snapshot has none of these.'];
+  const empty = `${icon(SECTION_ICONS[inv.section])}<b>${emptyTitle}</b>${emptyText}${
+    filtered && inv.rows.length ? '<br><button type="button" data-clear>Clear filters</button>' : ''}`;
+  const note = [];
+  if (rows.length > MAX_ROWS) note.push(`Showing the first ${MAX_ROWS} of ${rows.length} rows — search or pick a VDOM to narrow down.`);
+  if (inv.hidden?.size) note.push(`Hidden because empty: ${[...inv.hidden].join(', ')}`);
+  if (rows.length) note.push('Tip: ↑ ↓ move between rows, Enter opens details.');
+  $('#invNote').textContent = note.join('  ·  ');
+  keepFocus($('#invTable'), () => {
+    $('#invTable thead').innerHTML = '<tr>' + cols.map(([h]) => `<th scope="col" aria-sort="${ariaSort(h)}"><button class="sort" data-col="${
+      esc(h)}" title="Sort by ${esc(h)}">${h}<span class="arrow" aria-hidden="true">${
+      inv.sort?.col === h ? (inv.sort.dir > 0 ? '▲' : '▼') : ''}</span></button></th>`).join('') + '</tr>';
+    $('#invTable tbody').innerHTML = rows.length ? rows.slice(0, MAX_ROWS).map((r) => {
+      const key = rowKey(r);
+      const open = inv.open.has(key);
+      return `<tr class="item${open ? ' open' : ''}" data-key="${esc(key)}" tabindex="0" aria-expanded="${open}" aria-controls="invDetail" title="${
+        sec.xref ? 'Click for settings and where it is used' : 'Click for all settings'}">${
+        cols.map(([h, fn]) => WRAP_COLS.has(h) ? `<td class="w"><div class="clamp">${fn(r)}</div></td>` : `<td>${fn(r)}</td>`).join('')}</tr>`;
+    }).join('') + (rows.length > MAX_ROWS ? `<tr><td colspan="${cols.length}" class="capped">Showing the first ${MAX_ROWS} of ${
+      rows.length} rows — search or pick a VDOM to narrow down.</td></tr>` : '')
+      : `<tr><td colspan="${cols.length}" class="emptystate">${empty}</td></tr>`;
+  });
+  if (q) markText($('#invTable tbody'), q);
+  renderDetail();
+  setHash('inventory', invParams(), false);
+}
+
+// ---------- detail drawer (the opened row) ----------
+const settingsList = (raw) => !raw || !Object.keys(raw).length ? '<div class="empty">No settings.</div>'
+  : `<dl class="kv">${Object.entries(raw).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${
+    v && typeof v === 'object' && (!Array.isArray(v) || v.some((x) => x && typeof x === 'object'))
+      ? `<pre>${esc(JSON.stringify(v, null, 2))}</pre>` : esc(arr(v))}</dd>`).join('')}</dl>`;
+
+const detailTitle = (r) => inv.section === 'policies' ? `Policy ${r.policyid}${r.name ? ' · ' + r.name : ''}`
+  : inv.section === 'routepolicies' ? `Policy route ${r.seq_num}`
+  : inv.section === 'sslvpn' ? `SSL-VPN settings` : r.name ?? '';
+
+function renderDetail() {
+  const key = [...inv.open][0];
+  const r = key && inv.rows.find((x) => rowKey(x) === key);
+  $('#invDetail').hidden = !r;
+  if (!r) return;
+  const sec = SECTIONS[inv.section];
+  $('#detKind').textContent = sec.label;
+  $('#detTitle').textContent = detailTitle(r);
+  $('#detCopy').dataset.value = r.name || r.policyid || r.seq_num || detailTitle(r);
+  $('#detMeta').textContent = [r._fw, r.vdom && `VDOM ${r.vdom}`].filter(Boolean).join(' · ');
+  $('#detBody').innerHTML = sec.xref ? renderXref(r, inv.xref.get(`${inv.section}:${key}`))
+    : `<div class="xref"><div><h4>Settings</h4>${settingsList(r.raw)}</div></div>`;
+}
+
+function closeDetail() {
+  const key = [...inv.open][0];
+  if (!key) return;
+  inv.open.clear();
+  renderInventory();
+  $(`#invTable tr.item[data-key="${CSS.escape(key)}"]`)?.focus();
+}
+
+// ---------- correlation (opened row of a policy / address / group / VIP / IP pool) ----------
+const KIND_SECTION = { address: 'addresses', addrgrp: 'addrgrps', vip: 'vips', ippool: 'ippools',
+  service: 'services', servicegrp: 'servicegrps', policy: 'policies', routepolicy: 'routepolicies' };
+const KIND_LABEL = { address: 'address', addrgrp: 'group', vip: 'VIP', vipgrp: 'VIP group', ippool: 'IP pool',
+  service: 'service', servicegrp: 'service group', external: 'threat feed', unknown: 'not found' };
+const FIELD_LABEL = { srcaddr: 'Source', dstaddr: 'Destination', service: 'Service', poolname: 'NAT IP pool', member: 'Members' };
+const FIELD_ORDER = Object.keys(FIELD_LABEL);
+const MAX_REFS = 300;
+
+// Link that opens another object of the same snapshot (q = what to search for there).
+const objLink = (r, kind, id, label, q = id) => KIND_SECTION[kind]
+  ? `<a href="#" data-goto="${KIND_SECTION[kind]}" data-snap="${r._snap}" data-vdom="${esc(r.vdom)}" data-id="${esc(id)}" data-q="${esc(q)}">${esc(label)}</a>`
+  : esc(label);
+
+function memberValue(m) {
+  if (m.kind === 'address') return mono(m.subnet) || (m.start_ip ? mono(`${m.start_ip} – ${m.end_ip}`) : '')
+    || mono(m.fqdn) || esc(m.country || m.type || '');
+  if (m.kind === 'vip') return mono(m.extip) + (m.mappedip ? ' → ' + m.mappedip.map(mono).join(', ') : '');
+  if (m.kind === 'service') return mono(svcValue(m));
+  if (m.kind === 'ippool') return mono(m.pool_start === m.pool_end ? m.pool_start : `${m.pool_start} – ${m.pool_end}`);
+  return '';
+}
+
+function renderXref(r, x) {
+  if (!x) return '<div class="empty">Loading…</div>';
+  if (x.error) return `<div class="err">✖ ${esc(x.error)}</div>`;
+  const parts = [];
+  // What it contains: groups expanded to the actual addresses / VIPs.
+  const fields = [...new Set(x.members.map((m) => m.field))].sort((a, b) => FIELD_ORDER.indexOf(a) - FIELD_ORDER.indexOf(b));
+  for (const f of fields) {
+    const list = x.members.filter((m) => m.field === f);
+    const leaves = list.filter((m) => !/grp$/.test(m.kind)).length;
+    parts.push(`<div><h4>${FIELD_LABEL[f] || esc(f)} · ${leaves} object${leaves === 1 ? '' : 's'}</h4><ul>${
+      list.slice(0, MAX_REFS).map((m) => `<li style="padding-left:${m.depth * 18}px">${m.depth ? '└ ' : ''}${objLink(r, m.kind, m.name, m.name)}
+        <span class="tag">${KIND_LABEL[m.kind] || esc(m.kind)}</span> ${memberValue(m)}${m.comment ? ` <span class="via">${esc(m.comment)}</span>` : ''}</li>`).join('')}${
+      list.length > MAX_REFS ? `<li class="more">+${list.length - MAX_REFS} more</li>` : ''}</ul></div>`);
+  }
+  // Where it is used, directly or through (nested) groups.
+  {
+    // Groups in between are of the object's own family (address, service or VIP groups).
+    const grp = /^service/.test(inv.section) ? 'servicegrp' : inv.section === 'vips' ? 'vipgrp' : 'addrgrp';
+    const via = (u) => u.via.length ? ` <span class="via">via ${u.via.slice().reverse().map((g) => objLink(r, grp, g, g)).join(' › ')}</span>` : '';
+    const line = (u) => u.ref_type === 'policy'
+      ? `${objLink(r, 'policy', u.ref_id, `#${u.ref_id}${u.policy_name ? ' ' + u.policy_name : ''}`, u.uuid || u.ref_id)}
+         <span class="${u.action === 'accept' ? 'ok' : 'down'}">${esc(u.action)}</span>${u.status === 'disable' ? ' <span class="empty">disabled</span>' : ''}
+         <span class="via">${esc(arr(u.srcintf))} → ${esc(arr(u.dstintf))} · ${FIELD_LABEL[u.field] || esc(u.field)}</span>${via(u)}`
+      : u.ref_type === 'routepolicy'
+      ? `${objLink(r, 'routepolicy', u.ref_id, `seq ${u.ref_id}`, '')} <span class="via">${esc(u.comments || '')} · ${FIELD_LABEL[u.field] || esc(u.field)}</span>${via(u)}`
+      : `${objLink(r, u.ref_type, u.ref_id, u.ref_id)} <span class="tag">${KIND_LABEL[u.ref_type]}</span>${via(u)}`;
+    for (const [type, title] of [['policy', 'Used in policies'], ['routepolicy', 'Used in policy routes'], ['addrgrp', 'Member of groups'],
+      ['servicegrp', 'Member of service groups'], ['vipgrp', 'Member of VIP groups']]) {
+      const list = x.usedBy.filter((u) => u.ref_type === type);
+      if (!list.length) continue;
+      const n = new Set(list.map((u) => u.ref_id)).size;
+      parts.push(`<div><h4>${title} · ${n}</h4><ul>${list.slice(0, MAX_REFS).map((u) => `<li>${line(u)}</li>`).join('')}${
+        list.length > MAX_REFS ? `<li class="more">+${list.length - MAX_REFS} more</li>` : ''}</ul></div>`);
+    }
+    if (!x.usedBy.length && SECTIONS[inv.section].cols.some(([h]) => h === 'Used by')) {
+      parts.push('<div><h4>Used by</h4><span class="down">Not referenced by any group, policy or policy route.</span></div>');
+    }
+  }
+  parts.push(`<div><h4>Settings</h4>${settingsList(x.raw)}</div>`);
+  return `<div class="xref">${parts.join('')}</div>`;
+}
+
+async function loadXref(r) {
+  const section = inv.section;
+  const ck = `${section}:${rowKey(r)}`;
+  if (inv.xref.has(ck)) return;
+  inv.xref.set(ck, null);
+  let data;
+  try {
+    data = await api('GET', `/api/inventory/snapshots/${r._snap}/xref/${section}?` + new URLSearchParams({
+      vdom: r.vdom, name: SECTIONS[section].xref(r) }));
+  } catch (err) {
+    data = { error: err.message };
+  }
+  inv.xref.set(ck, data);
+  if (inv.section === section) renderDetail();
+}
+
+// Jumps to an object from a correlation link: switches tab, searches for it and opens it.
+async function gotoObject({ goto, snap, vdom, id, q }) {
+  inv.section = goto;
+  inv.sort = null;
+  $('#invSearch').value = q;
+  if ([...$('#invVdom').options].some((o) => o.value === vdom)) $('#invVdom').value = vdom;
+  await loadRows();
+  const r = inv.rows.find((x) => x._snap === Number(snap) && x.vdom === vdom && String(SECTIONS[goto].xref(x)) === id);
+  if (r) {
+    inv.open.add(rowKey(r));
+    renderInventory();
+    loadXref(r);
+    // Focus stays in the drawer, now showing the object jumped to.
+    $('#detTitle').focus();
+  }
+  pushInv();
+}
+
+// Highlights every occurrence of q in the visible text under el.
+function markText(el, q) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) if (walker.currentNode.nodeValue.toLowerCase().includes(q)) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const text = node.nodeValue, lower = text.toLowerCase();
+    const frag = document.createDocumentFragment();
+    let pos = 0;
+    for (let i = lower.indexOf(q); i !== -1; i = lower.indexOf(q, pos)) {
+      frag.append(text.slice(pos, i));
+      const m = document.createElement('mark');
+      m.textContent = text.slice(i, i + q.length);
+      frag.append(m);
+      pos = i + q.length;
+    }
+    frag.append(text.slice(pos));
+    node.replaceWith(frag);
+  }
+}
+
+// Selection / snapshot / section changes create history entries; filters just update the URL.
+const pushInv = () => setHash('inventory', invParams(), true);
+
+$('#devFilter').oninput = renderDevices;
+// Clicking a firewall shows only that one; its checkbox adds or removes it.
+$('#devList').onclick = async (e) => {
+  const pick = e.target.closest('button[data-dev]');
+  const toggle = e.target.closest('input[data-toggle]');
+  if (pick) {
+    const id = Number(pick.dataset.dev);
+    toggleFwPop(false);
+    $('#fwBtn').focus();
+    if (inv.selected.size === 1 && inv.selected.has(id)) return;
+    inv.selected = new Set([id]);
+  } else if (toggle) {
+    const id = Number(toggle.dataset.toggle);
+    toggle.checked ? inv.selected.add(id) : inv.selected.delete(id);
+  } else return;
+  inv.snap = null;
+  await refreshSelection();
+  pushInv();
+};
+// "All" applies to the firewalls matching the list filter.
+$('#devAll').onchange = async (e) => {
+  const f = $('#devFilter').value.trim().toLowerCase();
+  for (const d of inv.devices) {
+    if (f && ![d.hostname, d.model, d.serial].join(' ').toLowerCase().includes(f)) continue;
+    e.target.checked ? inv.selected.add(d.id) : inv.selected.delete(d.id);
+  }
+  inv.snap = null;
+  await refreshSelection();
+  pushInv();
+};
+$('#invSnap').onchange = async () => {
+  inv.snap = selectedDevs()[0].snaps.find((s) => s.id === Number($('#invSnap').value));
+  await refreshSelection();
+  pushInv();
+};
+$('#invVdom').onchange = renderInventory;
+function clearInvFilters() {
+  $('#invSearch').value = '';
+  $('#invVdom').value = '';
+  renderInventory();
+  $('#invSearch').focus();
+}
+$('#invClear').onclick = clearInvFilters;
+$('#invSearch').oninput = debounce(renderInventory, 120);
+async function selectSection(sec) {
+  if (sec === inv.section) return;
+  inv.sort = null;
+  inv.section = sec;
+  await loadRows();
+  pushInv();
+}
+$('#invTabs').onclick = (e) => {
+  const btn = e.target.closest('button[data-sec]');
+  if (btn) selectSection(btn.dataset.sec);
+};
+// Arrow keys move between the sections; Enter opens one.
+$('#invTabs').onkeydown = (e) => {
+  const items = [...$('#invTabs').querySelectorAll('button:not(:disabled)')];
+  const i = items.indexOf(document.activeElement);
+  const next = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: items.length - 1 }[e.key];
+  if (i < 0 || next == null) return;
+  e.preventDefault();
+  items[(next + items.length) % items.length].focus();
+};
+
+// ---------- firewall filter popover ----------
+function toggleFwPop(open) {
+  $('#fwPop').hidden = !open;
+  $('#fwBtn').setAttribute('aria-expanded', open);
+  if (open) $('#devFilter').focus();
+}
+$('#fwBtn').onclick = () => toggleFwPop($('#fwPop').hidden);
+document.addEventListener('click', (e) => {
+  if (!$('#fwPop').hidden && !$('#fwFilter').contains(e.target)) toggleFwPop(false);
+});
+$('#invTable thead').onclick = (e) => {
+  const th = e.target.closest('[data-col]');
+  if (!th) return;
+  const col = th.dataset.col;
+  // Click cycles: ascending → descending → unsorted.
+  inv.sort = inv.sort?.col !== col ? { col, dir: 1 } : inv.sort.dir > 0 ? { col, dir: -1 } : null;
+  renderInventory();
+};
+// Click a row to show all of its (secret-redacted) settings and, for policies and
+// objects, what it contains and where it is used. Links in there jump to that object.
+$('#invTable tbody').onclick = (e) => {
+  const link = e.target.closest('a[data-goto]');
+  if (link) {
+    e.preventDefault();
+    return gotoObject(link.dataset);
+  }
+  if (e.target.closest('[data-clear]')) return clearInvFilters();
+  if (e.target.closest('a[target]')) return; // external link (firewall GUI): don't open the row too
+  const row = e.target.closest('tr.item');
+  if (!row || getSelection().toString()) return;
+  toggleRow(row);
+};
+// Rows are focusable: Enter or Space opens / closes them like a click. Up / Down move
+// between rows; while the drawer is open it follows the focused row.
+$('#invTable tbody').onkeydown = (e) => {
+  if (!e.target.matches('tr.item')) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    toggleRow(e.target, true);
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    const rows = [...$('#invTable tbody').querySelectorAll('tr.item')];
+    const next = rows[rows.indexOf(e.target) + (e.key === 'ArrowDown' ? 1 : -1)];
+    if (!next) return;
+    e.preventDefault();
+    next.focus();
+    if (inv.open.size) toggleRow(next);
+  }
+};
+$('#detCopy').onclick = async () => {
+  const btn = $('#detCopy');
+  try {
+    await navigator.clipboard.writeText(btn.dataset.value);
+    btn.classList.add('copied');
+    btn.setAttribute('aria-label', 'Copied');
+    setTimeout(() => { btn.classList.remove('copied'); btn.setAttribute('aria-label', 'Copy name'); }, 1500);
+  } catch {}
+};
+// One row is open at a time, shown in the drawer. From the keyboard, focus moves into it.
+function toggleRow(row, focus) {
+  const key = row.dataset.key;
+  const wasOpen = inv.open.has(key);
+  inv.open.clear();
+  if (!wasOpen) inv.open.add(key);
+  renderInventory();
+  if (wasOpen) return;
+  const r = SECTIONS[inv.section].xref && inv.rows.find((x) => rowKey(x) === key);
+  if (r) loadXref(r);
+  if (focus) $('#detTitle').focus();
+}
+$('#detClose').onclick = closeDetail;
+$('#invDetail').onclick = (e) => {
+  const link = e.target.closest('a[data-goto]');
+  if (!link) return;
+  e.preventDefault();
+  gotoObject(link.dataset);
+};
+
+// ---------- push configuration ----------
+// Form fields per object type, using the FortiOS field names. `when` shows a field only for
+// one value of another field; `chips` is a list of object names; `list` names a datalist.
+const NAME = { k: 'name', label: 'Name', req: true };
+const PUSH_FIELDS = {
+  address: [
+    NAME,
+    { k: 'type', label: 'Type', opts: [['ipmask', 'Subnet'], ['iprange', 'IP range'], ['fqdn', 'FQDN']] },
+    { k: 'subnet', label: 'Subnet', req: true, ph: '10.1.0.0/24  or  10.1.0.10', when: ['type', 'ipmask'] },
+    { k: 'start-ip', label: 'Start IP', req: true, ph: '10.1.0.10', when: ['type', 'iprange'] },
+    { k: 'end-ip', label: 'End IP', req: true, ph: '10.1.0.20', when: ['type', 'iprange'] },
+    { k: 'fqdn', label: 'FQDN', req: true, ph: 'app.example.com', when: ['type', 'fqdn'] },
+    { k: 'associated-interface', label: 'Interface (optional)', list: 'interfaces' },
+    { k: 'comment', label: 'Comment', wide: true },
+  ],
+  addrgrp: [
+    NAME,
+    { k: 'member', label: 'Members', req: true, chips: 'addresses', wide: true },
+    { k: 'comment', label: 'Comment', wide: true },
+  ],
+  service: [
+    NAME,
+    { k: 'protocol', label: 'Protocol', opts: [['TCP/UDP/SCTP', 'TCP / UDP / SCTP'], ['ICMP', 'ICMP'], ['IP', 'IP']] },
+    { k: 'tcp-portrange', label: 'TCP ports', ph: '443  8080-8090', when: ['protocol', 'TCP/UDP/SCTP'] },
+    { k: 'udp-portrange', label: 'UDP ports', ph: '53  5000-5100', when: ['protocol', 'TCP/UDP/SCTP'] },
+    { k: 'sctp-portrange', label: 'SCTP ports', when: ['protocol', 'TCP/UDP/SCTP'] },
+    { k: 'icmptype', label: 'ICMP type (empty = any)', ph: '8', num: true, when: ['protocol', 'ICMP'] },
+    { k: 'protocol-number', label: 'IP protocol number', req: true, ph: '47', num: true, when: ['protocol', 'IP'] },
+    { k: 'category', label: 'Category (optional)', list: 'categories' },
+    { k: 'comment', label: 'Comment', wide: true },
+  ],
+  servicegrp: [
+    NAME,
+    { k: 'member', label: 'Members', req: true, chips: 'services', wide: true },
+    { k: 'comment', label: 'Comment', wide: true },
+  ],
+  policy: [
+    { k: 'name', label: 'Name', ph: 'Optional, but needed to detect an existing policy' },
+    { k: 'action', label: 'Action', opts: [['accept', 'Accept'], ['deny', 'Deny']] },
+    { k: 'srcintf', label: 'Incoming interface', req: true, chips: 'interfaces' },
+    { k: 'dstintf', label: 'Outgoing interface', req: true, chips: 'interfaces' },
+    { k: 'srcaddr', label: 'Source', req: true, chips: 'addresses' },
+    { k: 'dstaddr', label: 'Destination', req: true, chips: 'addresses' },
+    { k: 'service', label: 'Service', req: true, chips: 'services', wide: true },
+    { k: 'schedule', label: 'Schedule', value: 'always', list: 'schedules' },
+    { k: 'logtraffic', label: 'Log traffic', opts: [['all', 'All sessions'], ['utm', 'Security events'], ['disable', 'Disabled']] },
+    { k: 'before', label: 'Place before policy ID', ph: 'Empty = bottom of the list', num: true },
+    { k: 'nat', label: 'NAT', check: true, when: ['action', 'accept'] },
+    { k: 'status', label: 'Enabled', check: true, checked: true },
+    { k: 'comments', label: 'Comments', wide: true },
+  ],
+};
+
+const pu = {
+  enabled: false, types: {}, type: 'address', selected: new Set(),
+  sugg: new Map(), suggId: 0,  // "<fw id>|<vdom>" -> suggestion lists
+  fwVdoms: new Map(),          // fw id -> { vdoms: [...] | null (unknown), loading } read live
+  vdomSel: new Set(['root']),  // ticked VDOMs
+  planned: null,               // request (as JSON) the current preview was made for
+};
+
+async function loadPushStatus() {
+  try {
+    const s = await api('GET', '/api/push/status');
+    Object.assign(pu, { enabled: s.enabled, types: s.types });
+  } catch {}
+  $('#puOff').hidden = pu.enabled;
+  $('#puTypes').innerHTML = Object.entries(pu.types).map(([k, label]) =>
+    `<button type="button" role="radio" data-type="${esc(k)}" aria-checked="${k === pu.type}">${esc(label)}</button>`).join('');
+  renderPushForm();
+}
+
+// ----- targets -----
+// VDOMs of a firewall come from its newest inventory snapshot (already loaded, instant).
+// Firewalls that have no snapshot are asked live, once.
+function fwVdoms(fw) {
+  const snap = inv.snapshots.find((s) => s.host === fw.host && s.vdoms?.length);
+  if (snap) return { vdoms: snap.vdoms, from: 'inventory' };
+  return pu.fwVdoms.get(fw.id) || null;
+}
+
+async function loadLiveVdoms() {
+  const todo = fws.list.filter((f) => pu.selected.has(f.id) && !fwVdoms(f));
+  if (!todo.length) return;
+  for (const f of todo) pu.fwVdoms.set(f.id, { vdoms: null, loading: true });
+  keepFocus($('#puFwList'), renderPushTargets);
+  await Promise.all(todo.map(async (f) => {
+    let vdoms = null;
+    try { vdoms = (await api('GET', `/api/firewalls/${encodeURIComponent(f.id)}/vdoms`)).vdoms; } catch {}
+    pu.fwVdoms.set(f.id, { vdoms, from: 'device' });
+  }));
+  keepFocus($('#puFwList'), renderPushTargets);
+  loadSuggestions();
+}
+
+const byVdomName = (a, b) => (a === 'root' ? -1 : b === 'root' ? 1 : collator.compare(a, b));
+
+// VDOMs on offer: every VDOM found on the ticked firewalls, with on how many of them it
+// exists (root is offered for firewalls whose VDOMs are unknown).
+function vdomChoices() {
+  const picked = fws.list.filter((f) => pu.selected.has(f.id));
+  const infos = picked.map((f) => ({ f, ...fwVdoms(f) }));
+  const count = new Map();
+  for (const i of infos) for (const v of i.vdoms || []) count.set(v, (count.get(v) || 0) + 1);
+  const unknown = infos.filter((i) => !i.loading && !i.vdoms);
+  if (unknown.length && !count.has('root')) count.set('root', 0);
+  const list = [...count.keys()].sort(byVdomName);
+  // Keep the choice across firewalls; start with root.
+  if (!pu.vdomSel.size && list.includes('root')) pu.vdomSel.add('root');
+  return { picked, infos, count, unknown, list, sel: new Set(list.filter((v) => pu.vdomSel.has(v))) };
+}
+
+// Firewall + VDOM pairs to push to: every ticked VDOM on every ticked firewall that has it
+// (a firewall whose VDOMs are unknown gets the ticked VDOMs; the preview shows what fails).
+function pushTargets() {
+  const { picked, sel } = vdomChoices();
+  const out = [];
+  for (const f of picked) {
+    const vd = fwVdoms(f)?.vdoms;
+    for (const v of sel) if (!vd || vd.includes(v)) out.push({ firewall: f.id, vdom: v });
+  }
+  return out;
+}
+
+function renderVdomPicker() {
+  const { picked, infos, count, unknown, list, sel } = vdomChoices();
+
+  $('#puVdoms').innerHTML = !picked.length ? '<li class="empty">Tick a firewall first.</li>'
+    : !list.length ? '<li class="empty">Loading VDOMs…</li>'
+    : list.map((v) => `<li><label class="check vd${sel.has(v) ? ' on' : ''}"><input type="checkbox" data-vdom="${esc(v)}" ${sel.has(v) ? 'checked' : ''}>
+        ${esc(v)}${picked.length > 1 ? ` <span class="muted">${count.get(v) || '?'}/${picked.length}</span>` : ''}</label></li>`).join('');
+  $('#puVdomAll').hidden = list.length < 2;
+  $('#puVdomAll').textContent = list.every((v) => sel.has(v)) ? 'None' : 'All';
+
+  const note = [];
+  if (infos.some((i) => i.loading)) note.push('Reading VDOMs from the firewalls without an inventory snapshot…');
+  if (unknown.length) note.push(`VDOMs of ${unknown.map((i) => i.f.name).join(', ')} unknown (no inventory snapshot, device not reachable).`);
+  const n = pushTargets().length;
+  if (picked.length && sel.size && n > picked.length) note.push(`${n} firewall/VDOM pairs.`);
+  $('#puVdomNote').textContent = note.join(' ');
+}
+
+function renderPushTargets() {
+  if (!$('#puFwList')) return;
+  const ids = new Set(fws.list.map((f) => f.id));
+  pu.selected = new Set([...pu.selected].filter((id) => ids.has(id)));
+  const f = $('#puFwFilter').value.trim().toLowerCase();
+  const shown = fws.list.filter((x) => !f || `${x.name} ${x.host}`.toLowerCase().includes(f));
+  const vdomInfo = (x) => {
+    const i = fwVdoms(x);
+    if (!i) return '';
+    if (i.loading) return ' · reading VDOMs…';
+    if (!i.vdoms) return ' · VDOMs unknown';
+    return i.vdoms.length > 1 ? ` · ${i.vdoms.length} VDOMs` : '';
+  };
+  $('#puFwList').innerHTML = shown.length ? shown.map((x) => `
+    <li class="dev${pu.selected.has(x.id) ? ' active' : ''}">
+      <label class="check"><input type="checkbox" data-dev="${esc(x.id)}" ${pu.selected.has(x.id) ? 'checked' : ''}>
+        <span><b>${esc(x.name)}</b><small><span class="mono">${esc(x.host)}</span>${vdomInfo(x)}</small></span></label>
+    </li>`).join('')
+    : `<li class="empty">${fws.list.length ? 'No firewall matches.' : 'No firewalls yet. Add one on the Firewalls tab.'}</li>`;
+  const all = $('#puAll');
+  const n = shown.filter((x) => pu.selected.has(x.id)).length;
+  all.checked = !!shown.length && n === shown.length;
+  all.indeterminate = n > 0 && n < shown.length;
+  all.disabled = !shown.length;
+  $('#puAllLabel').textContent = f ? `All shown (${shown.length})` : `All firewalls (${shown.length})`;
+  renderVdomPicker();
+  syncPushBtn();
+}
+$('#puFwFilter').oninput = renderPushTargets;
+$('#puFwList').onchange = (e) => {
+  const id = e.target.dataset.dev;
+  if (!id) return;
+  if (e.target.checked) pu.selected.add(id); else pu.selected.delete(id);
+  keepFocus($('#puFwList'), renderPushTargets);
+  loadLiveVdoms();
+  loadSuggestions();
+};
+$('#puAll').onchange = (e) => {
+  for (const cb of document.querySelectorAll('#puFwList input[data-dev]')) {
+    if (e.target.checked) pu.selected.add(cb.dataset.dev); else pu.selected.delete(cb.dataset.dev);
+  }
+  renderPushTargets();
+  loadLiveVdoms();
+  loadSuggestions();
+};
+$('#puVdoms').onchange = (e) => {
+  const v = e.target.dataset.vdom;
+  if (v == null) return;
+  if (e.target.checked) pu.vdomSel.add(v); else pu.vdomSel.delete(v);
+  keepFocus($('#puVdoms'), renderPushTargets);
+  loadSuggestions();
+};
+$('#puVdomAll').onclick = () => {
+  const boxes = [...document.querySelectorAll('#puVdoms input[data-vdom]')];
+  const on = !boxes.every((b) => b.checked);
+  for (const b of boxes) if (on) pu.vdomSel.add(b.dataset.vdom); else pu.vdomSel.delete(b.dataset.vdom);
+  renderPushTargets();
+  loadSuggestions();
+};
+
+// Autocompletion comes from the first selected firewall (live from the device).
+async function loadSuggestions() {
+  const t = pushTargets()[0];
+  const fwId = t?.firewall;
+  const vdom = t?.vdom;
+  const id = ++pu.suggId;
+  const fill = (s) => {
+    for (const k of ['interfaces', 'addresses', 'services', 'schedules', 'categories']) {
+      $(`#pu-dl-${k}`).innerHTML = (s?.[k] || []).map((v) => `<option value="${esc(v)}">`).join('');
+    }
+  };
+  if (!fwId || !vdom) { fill(null); $('#puSugg').textContent = ''; return; }
+  const name = fws.list.find((x) => x.id === fwId)?.name || '';
+  const key = `${fwId}|${vdom}`;
+  if (!pu.sugg.has(key)) {
+    $('#puSugg').textContent = `Loading object names from ${name}…`;
+    try {
+      pu.sugg.set(key, await api('GET', `/api/firewalls/${encodeURIComponent(fwId)}/objects?vdom=${encodeURIComponent(vdom)}`));
+    } catch (err) {
+      if (id === pu.suggId) $('#puSugg').textContent = `Could not load names from ${name}: ${err.message}`;
+      return;
+    }
+  }
+  if (id !== pu.suggId) return;
+  const s = pu.sugg.get(key);
+  fill(s);
+  $('#puSugg').textContent = s.addresses.length + s.interfaces.length
+    ? `Name suggestions from ${name} (${vdom}).` : `No object names could be read from ${name} (${vdom}).`;
+}
+
+// ----- object form -----
+function fieldHtml(f) {
+  const id = `pu-${f.k}`;
+  const cls = [f.wide && 'wide'].filter(Boolean).join(' ');
+  const lbl = `<span class="${f.req ? 'req' : ''}">${esc(f.label)}</span>`;
+  if (f.check) {
+    return `<label class="check ${cls}" data-k="${f.k}"><input type="checkbox" id="${id}" ${f.checked ? 'checked' : ''}> ${esc(f.label)}</label>`;
+  }
+  if (f.opts) {
+    return `<label class="${cls}" data-k="${f.k}">${lbl}<select id="${id}">${f.opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>`;
+  }
+  if (f.chips) {
+    return `<div class="field ${cls}" data-k="${f.k}"><span id="${id}-l" class="${f.req ? 'req' : ''}">${esc(f.label)}</span>
+      <div class="chips" data-chips="${f.k}"><input type="text" id="${id}" list="pu-dl-${f.chips}" aria-labelledby="${id}-l"
+        placeholder="Type a name, Enter to add" autocomplete="off" spellcheck="false"></div></div>`;
+  }
+  return `<label class="${cls}" data-k="${f.k}">${lbl}<input type="text" id="${id}" value="${esc(f.value || '')}"
+    ${f.list ? `list="pu-dl-${f.list}"` : ''} ${f.num ? 'inputmode="numeric"' : ''} placeholder="${esc(f.ph || '')}" autocomplete="off" spellcheck="false"></label>`;
+}
+
+function renderPushForm() {
+  $('#puForm').innerHTML = (PUSH_FIELDS[pu.type] || []).map(fieldHtml).join('');
+  $('#puUpdate').parentElement.lastChild.textContent = pu.type === 'policy'
+    ? ' Update the policy if one with this name exists' : ' Update the object if it already exists';
+  applyWhen();
+  clearPlan();
+}
+
+function applyWhen() {
+  for (const f of PUSH_FIELDS[pu.type] || []) {
+    if (!f.when) continue;
+    const [k, v] = f.when;
+    $('#puForm').querySelector(`[data-k="${f.k}"]`).hidden = $(`#pu-${k}`).value !== v;
+  }
+}
+
+$('#puTypes').onclick = (e) => {
+  const b = e.target.closest('button[data-type]');
+  if (!b || b.dataset.type === pu.type) return;
+  pu.type = b.dataset.type;
+  document.querySelectorAll('#puTypes button').forEach((x) => x.setAttribute('aria-checked', x === b));
+  renderPushForm();
+};
+// Arrow keys move between the type buttons (radio group).
+$('#puTypes').onkeydown = (e) => {
+  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  if (!step) return;
+  const btns = [...document.querySelectorAll('#puTypes button')];
+  const next = btns[(btns.indexOf(document.activeElement) + step + btns.length) % btns.length];
+  e.preventDefault();
+  next.focus();
+  next.click();
+};
+
+// ----- chips (lists of object names) -----
+function addChip(input) {
+  const box = input.closest('.chips');
+  for (const v of input.value.split(',').map((x) => x.trim()).filter(Boolean)) {
+    if ([...box.querySelectorAll('.chip')].some((c) => c.dataset.v === v)) continue;
+    input.insertAdjacentHTML('beforebegin',
+      `<span class="chip" data-v="${esc(v)}"><span>${esc(v)}</span><button type="button" aria-label="Remove ${esc(v)}" title="Remove">×</button></span>`);
+  }
+  input.value = '';
+  syncPushBtn();
+}
+$('#puForm').addEventListener('keydown', (e) => {
+  const input = e.target.closest('.chips input');
+  if (input && (e.key === 'Enter' || e.key === ',')) {
+    e.preventDefault();
+    addChip(input);
+  } else if (input && e.key === 'Backspace' && !input.value && input.previousElementSibling) {
+    input.previousElementSibling.remove();
+    syncPushBtn();
+  } else if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+    e.preventDefault();
+    $('#puPreview').click();
+  }
+});
+// Picking a datalist entry adds it straight away (no inputType on a datalist pick).
+$('#puForm').addEventListener('input', (e) => {
+  const input = e.target.closest('.chips input');
+  if (input && (!e.inputType || e.inputType === 'insertReplacementText')) addChip(input);
+});
+$('#puForm').addEventListener('focusout', (e) => {
+  const input = e.target.closest('.chips input');
+  if (input?.value.trim()) addChip(input);
+});
+$('#puForm').addEventListener('click', (e) => {
+  const rm = e.target.closest('.chip button');
+  if (rm) {
+    const box = rm.closest('.chips');
+    rm.closest('.chip').remove();
+    box.querySelector('input').focus();
+    return syncPushBtn();
+  }
+  if (e.target.classList.contains('chips')) e.target.querySelector('input').focus();
+});
+$('#puForm').addEventListener('change', (e) => {
+  if (e.target.tagName === 'SELECT') applyWhen();
+});
+
+function pushData() {
+  const d = {};
+  for (const f of PUSH_FIELDS[pu.type] || []) {
+    const wrap = $('#puForm').querySelector(`[data-k="${f.k}"]`);
+    if (wrap.hidden) continue;
+    if (f.chips) {
+      const pending = wrap.querySelector('input').value.split(',').map((x) => x.trim()).filter(Boolean);
+      d[f.k] = [...wrap.querySelectorAll('.chip')].map((c) => c.dataset.v).concat(pending);
+    } else if (f.check) d[f.k] = $(`#pu-${f.k}`).checked;
+    else d[f.k] = $(`#pu-${f.k}`).value.trim();
+  }
+  return d;
+}
+
+const pushRequest = () => ({
+  targets: pushTargets(),
+  type: pu.type, data: pushData(), update: $('#puUpdate').checked,
+});
+
+// ----- preview + push -----
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// "3 firewalls", or "5 VDOMs on 3 firewalls" when some get more than one VDOM.
+function targetsText(targets) {
+  const fw = new Set(targets.map((t) => t.firewall)).size;
+  return targets.length === fw ? plural(fw, 'firewall') : `${plural(targets.length, 'VDOM')} on ${plural(fw, 'firewall')}`;
+}
+// Push needs a preview of exactly the current request; any change asks for a new preview.
+function syncPushBtn() {
+  const btn = $('#puGo');
+  const req = pushRequest();
+  const fresh = pu.planned != null && pu.planned === JSON.stringify(req);
+  btn.disabled = !pu.enabled || !fresh;
+  btn.textContent = `Push to ${targetsText(req.targets)}`;
+  btn.title = !pu.enabled ? 'Pushing is disabled on the server (ENABLE_PUSH=1)' : !fresh ? 'Preview the current changes first' : '';
+  $('#puPreview').disabled = !req.targets.length;
+  $('#puPreview').title = !pu.selected.size ? 'Select at least one firewall' : !req.targets.length ? 'Tick at least one VDOM' : '';
+  if (pu.planned != null && !fresh) $('#puPlan').classList.add('loading');
+}
+$('.view[data-view="push"]').addEventListener('input', syncPushBtn);
+$('.view[data-view="push"]').addEventListener('change', syncPushBtn);
+
+function clearPlan() {
+  pu.planned = null;
+  $('#puPlan').hidden = true;
+  $('#puPlan').classList.remove('loading');
+  $('#puMsg').hidden = true;
+  syncPushBtn();
+}
+
+const PLAN_LABEL = {
+  create: ['info', 'Will create'], update: ['warn', 'Will update'], conflict: ['err', 'Already exists'],
+};
+
+function resultCell(r, dryRun, type) {
+  if (!r.ok) return `<span class="pill err">✖ Failed</span> <span class="err">${esc(r.error)}</span>`;
+  if (dryRun) {
+    const [cls, text] = PLAN_LABEL[r.action];
+    const id = type === 'policy' && r.existing != null ? ` (policy ${esc(r.existing)})` : '';
+    return `<span class="pill ${cls}">${text}</span>${id}${r.action === 'conflict' ? ' <span class="muted">· tick “Update … if it exists” to overwrite, or rename it</span>' : ''}`;
+  }
+  const id = type === 'policy' && r.key != null ? ` · policy ID <b>${esc(r.key)}</b>` : '';
+  return `<span class="pill ok">✔ ${r.action === 'update' ? 'Updated' : 'Created'}</span>${id}${r.moved ? ` · ${esc(r.moved)}` : ''}`;
+}
+
+function renderPlan(r, dryRun) {
+  const p = r.payload;
+  const req = (method, path) => `${method} /api/v2/cmdb/${path}?vdom=<vdom>`;
+  const target = r.type === 'policy' ? `${p.path}/<id>` : `${p.path}/${encodeURIComponent(p.body.name)}`;
+  $('#puPlan').hidden = false;
+  $('#puPlan').classList.remove('loading');
+  $('#puPlan').innerHTML = `
+    <div class="wrap"><table>
+      <thead><tr><th scope="col">Firewall</th><th scope="col">VDOM</th><th scope="col">${dryRun ? 'Plan' : 'Result'}</th></tr></thead>
+      <tbody>${r.results.map((x) => `<tr><td class="fwname"><b>${esc(x.firewall)}</b><span class="mono">${esc(x.host)}</span></td>
+        <td class="mono">${esc(x.vdom)}</td><td>${resultCell(x, dryRun, r.type)}</td></tr>`).join('')}</tbody>
+    </table></div>
+    <details ${dryRun ? 'open' : ''}><summary class="muted">API request</summary>
+<pre class="payload">${esc(`${req('POST', p.path)}    (new)\n${req('PUT', target)}    (existing)\n\n${JSON.stringify(p.body, null, 2)}`
+  + (p.before != null ? `\n\nthen: PUT /api/v2/cmdb/firewall/policy/<id>?vdom=<vdom>&action=move&before=${p.before}` : ''))}</pre>
+    </details>`;
+}
+
+function pushMsg(ok, html) {
+  $('#puMsg').hidden = false;
+  setMsg($('#puMsg'), ok, html);
+}
+
+$('#puPreview').onclick = (e) => busy(e.target, async () => {
+  const body = pushRequest();
+  $('#puMsg').hidden = false;
+  $('#puMsg').className = 'msg'; $('#puMsg').textContent = 'Checking the firewalls…';
+  try {
+    const r = await api('POST', '/api/push', { ...body, dryRun: true });
+    renderPlan(r, true);
+    const ready = r.results.filter((x) => x.ok && x.action !== 'conflict').length;
+    pu.planned = ready ? JSON.stringify(body) : null;
+    pushMsg(ready === r.results.length, ready === r.results.length
+      ? `Ready to push to ${targetsText(body.targets)}. Nothing has been changed yet.`
+      : `${ready} of ${r.results.length} firewall/VDOM targets are ready; see below. ${ready ? 'Pushing now will fail on the others.' : ''}`);
+  } catch (err) {
+    pu.planned = null;
+    $('#puPlan').hidden = true;
+    pushMsg(false, '✖ ' + esc(err.message));
+  }
+  syncPushBtn();
+});
+
+$('#puGo').onclick = (e) => {
+  const body = pushRequest();
+  const what = `${pu.types[body.type]}${body.data.name ? ` "${body.data.name}"` : ''}`;
+  const vdoms = [...new Set(body.targets.map((t) => t.vdom))].join(', ');
+  if (!confirm(`Push ${what} to ${targetsText(body.targets)} (VDOM ${vdoms})?\n\nThis changes the live configuration.`)) return;
+  return busy(e.target, async () => {
+    $('#puMsg').className = 'msg'; $('#puMsg').textContent = 'Pushing…';
+    try {
+      const r = await api('POST', '/api/push', body);
+      renderPlan(r, false);
+      const ok = r.results.filter((x) => x.ok).length;
+      pushMsg(ok === r.results.length, `${ok === r.results.length ? '✔' : '✖'} Pushed to ${ok} of ${plural(r.results.length, 'firewall/VDOM target')}.`
+        + ' Take a new backup to see the change in the inventory.');
+      // Names on the devices changed: refresh suggestions next time.
+      pu.sugg.clear();
+      loadSuggestions();
+    } catch (err) {
+      pushMsg(false, '✖ ' + esc(err.message));
+    }
+    pu.planned = null;
+    syncPushBtn();
+    loadPushHistory();
+  });
+};
+
+// ----- history -----
+async function loadPushHistory() {
+  let list;
+  try { list = await api('GET', '/api/push/history?limit=50'); } catch { return; }
+  $('#puHist').innerHTML = list.length ? list.map((h) => `
+    <tr>
+      <td><span title="${esc(fmtDate(h.at))}">${ago(h.at)}</span></td>
+      <td class="fwname"><b>${esc(h.firewall)}</b><span class="mono">${esc(h.host)}</span></td>
+      <td class="mono">${esc(h.vdom)}</td>
+      <td><span class="tag">${esc(pu.types[h.type] || h.type)}</span> ${esc(h.name ?? (h.key != null ? `#${h.key}` : ''))}</td>
+      <td>${h.ok ? `<span class="pill ok">✔ ${h.action === 'update' ? 'Updated' : 'Created'}</span>${h.type === 'policy' && h.key != null ? ` ID ${esc(h.key)}` : ''}`
+        : `<span class="pill err">✖ Failed</span> <span class="err">${esc(h.error)}</span>`}</td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty">Nothing pushed yet.</td></tr>';
+}
+
+showView();
+loadFirewalls();
+loadPushStatus();
+loadInventory().then(loadBackups).then(showView);
+
+// ---------- IP lookup ----------
+const ipList = (a) => (a || []).map((x) => `<span class="tag">${esc(x)}</span>`).join(' ');
+function applyIpState(params) {
+  const q = params.get('q') || '';
+  $('#ipBroader').checked = params.get('broader') === '1';
+  $('#ipAll').checked = params.get('all') === '1';
+  if (q && q !== $('#ipQ').dataset.done) { $('#ipQ').value = q; runIpLookup(); }
+}
+let ipCtl;
+async function runIpLookup() {
+  const q = $('#ipQ').value.trim();
+  const params = new URLSearchParams({ q, broader: $('#ipBroader').checked ? '1' : '', all: $('#ipAll').checked ? '1' : '' });
+  setHash('iplookup', params, true);
+  if (!q) return;
+  $('#ipQ').dataset.done = q;
+  ipCtl?.abort(); ipCtl = new AbortController();
+  $('#ipMsg').className = 'msg empty'; $('#ipMsg').textContent = 'Searching…';
+  $('#ipResults').innerHTML = '';
+  try {
+    const r = await api('GET', `/api/inventory/iplookup?${params}`, null, ipCtl.signal);
+    const t = r.totals;
+    $('#ipMsg').className = 'msg ' + (r.devices.length ? 'ok' : '');
+    $('#ipMsg').innerHTML = r.devices.length
+      ? `<b>${esc(r.query)}</b>: ${t.objects} address objects, ${t.policies} policies on ${t.devices} firewalls — click a firewall to see its objects and policies${r.broader ? ' (including broader networks)' : ''}${r.truncated ? ' — object list truncated' : ''}.`
+      : `<b>${esc(r.query)}</b> is not configured anywhere${r.broader ? '' : ' (try “Include broader networks”)'}.`;
+    ipData = r; fillIpFilters(); renderIpResults();
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    $('#ipMsg').className = 'msg err'; $('#ipMsg').textContent = '✖ ' + err.message;
+  }
+}
+let ipData = null;
+const IPF = ['ipfFw', 'ipfVdom', 'ipfField', 'ipfAction', 'ipfStatus', 'ipfMatch', 'ipfText', 'ipfWithPol'];
+function fillIpFilters() {
+  const opts = (sel, vals) => { const cur = $(sel).value; $(sel).innerHTML = '<option value="">All</option>' + vals.map((v) => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join(''); };
+  opts('#ipfFw', ipData.devices.map((d) => d.hostname));
+  opts('#ipfVdom', [...new Set(ipData.devices.flatMap((d) => d.objects.map((o) => o.vdom)))].sort());
+  $('#ipFilters').hidden = !ipData.devices.length;
+}
+// Applies the filters to the loaded result (no new server query).
+function filterIp() {
+  const f = Object.fromEntries(IPF.map((id) => [id, $('#' + id).type === 'checkbox' ? $('#' + id).checked : $('#' + id).value.trim().toLowerCase()]));
+  return ipData.devices.filter((d) => !f.ipfFw || d.hostname.toLowerCase() === f.ipfFw).map((d) => {
+    const objects = d.objects.filter((o) => (!f.ipfVdom || o.vdom.toLowerCase() === f.ipfVdom) && (!f.ipfMatch || o.match === f.ipfMatch));
+    const names = new Set(objects.map((o) => o.vdom + '|' + o.name));
+    const policies = d.policies.map((p) => ({ ...p, matches: p.matches.filter((m) => names.has(p.vdom + '|' + m.origin) && (!f.ipfField || m.field === f.ipfField)) }))
+      .filter((p) => p.matches.length && (!f.ipfAction || p.action === f.ipfAction) && (!f.ipfStatus || (p.status || 'enable') === f.ipfStatus)
+        && (!f.ipfText || JSON.stringify([p.ref_id, p.policy_name, p.comments, p.srcintf, p.dstintf, p.srcaddr, p.dstaddr, p.service, p.matches]).toLowerCase().includes(f.ipfText)));
+    return { ...d, objects, policies };
+  }).filter((d) => d.objects.length && (!f.ipfWithPol || d.policies.length));
+}
+function renderIpResults() {
+  let r = ipData; const devs = filterIp();
+  const nObj = devs.reduce((n, d) => n + d.objects.length, 0), nPol = devs.reduce((n, d) => n + d.policies.length, 0);
+  const filtered = devs.length !== r.devices.length || nObj !== r.totals.objects || nPol !== r.totals.policies;
+  if (r.devices.length) $('#ipMsg').innerHTML = `<b>${esc(r.query)}</b>: ${nObj} address objects, ${nPol} policies on ${devs.length} firewalls${filtered ? ` (filtered from ${r.totals.objects} / ${r.totals.policies} / ${r.totals.devices})` : ''}${r.broader ? ' · including broader networks' : ''} — click a firewall to see its objects and policies.`;
+  r = { ...r, devices: devs };
+    const summary = !r.devices.length ? '' : `<div class="wrap" style="margin-bottom:16px"><table><thead><tr><th scope="col">Firewall</th><th scope="col">Address objects</th><th scope="col">Policies</th><th scope="col">VDOMs</th></tr></thead><tbody>${
+      r.devices.map((d) => `<tr><td><a href="#ipdev-${d.snapshotId}" data-ipdev="${d.snapshotId}"><b>${esc(d.hostname)}</b></a></td><td>${d.objects.length}</td><td><span class="pill ${d.policies.length ? 'ok' : ''}">${d.policies.length}</span></td><td>${ipList([...new Set(d.objects.map((o) => o.vdom))])}</td></tr>`).join('')
+    }</tbody></table></div>`;
+    $('#ipResults').innerHTML = summary + r.devices.map(renderIpDevice).join('');
+    $('#ipResults').querySelectorAll('[data-ipdev]').forEach((a) => a.onclick = (e) => {
+      e.preventDefault();
+      const el = document.getElementById('ipdev-' + a.dataset.ipdev);
+      el.open = true; el.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' });
+    });
+  if (!devs.length && r.totals.devices) $('#ipResults').innerHTML = '<p class="empty">No results match the filters.</p>';
+}
+IPF.forEach((id) => $('#' + id).addEventListener(id === 'ipfText' ? 'input' : 'change', debounce(() => ipData && renderIpResults(), 150)));
+$('#ipfReset').onclick = () => { IPF.forEach((id) => { const el = $('#' + id); if (el.type === 'checkbox') el.checked = false; else el.value = ''; }); ipData && renderIpResults(); };
+function renderIpDevice(d) {
+  const pols = d.policies;
+    const sec = (title, n, head, rows) => !n ? '' : `<h3>${title} (${n})</h3><div class="wrap"><table><thead><tr>${head.map((h) => `<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  const how = (p) => p.matches.map((m) => `<div><span class="tag">${esc(m.field)}</span> ${esc(m.origin)}${m.via.length ? ` <span class="ipvia">via ${m.via.map(esc).join(' › ')}</span>` : ''}</div>`).join('');
+  return `<details class="ipdev" id="ipdev-${d.snapshotId}"><summary>${esc(d.hostname)} <span class="pill">${esc(d.model || '')}</span>
+      <span class="pill">${d.objects.length} objects</span><span class="pill ${pols.length ? 'ok' : ''}">${pols.length} policies</span>
+      <span class="sub mono" style="font-weight:400">${esc(d.backupFile)} · ${fmtShort(d.takenAt)}</span></summary><div>
+    ${sec('Address objects', d.objects.length, ['VDOM', 'Name', 'Type', 'Value', 'Match', 'Comment'], d.objects.map((o) =>
+      `<tr class="m-${esc(o.match)}"><td>${esc(o.vdom)}</td><td><b>${esc(o.name)}</b></td><td><span class="tag">${esc(o.type || '')}</span></td><td class="mono">${esc(o.value)}</td><td><span class="pill m-${esc(o.match)}">${esc(o.match)}</span></td><td>${esc(o.comment || '')}</td></tr>`).join(''))}
+    ${sec('Firewall policies', pols.length, ['VDOM', 'ID', 'Name', 'Action', 'From → To', 'Source', 'Destination', 'Service', 'Matched by'], pols.map((p) =>
+      `<tr${p.status === 'disable' ? ' style="opacity:.6" title="disabled"' : ''}><td>${esc(p.vdom)}</td><td class="mono"><b>${esc(p.ref_id)}</b>${p.status === 'disable' ? ' <span class="tag">disabled</span>' : ''}</td><td>${esc(p.policy_name || '')}${p.comments ? `<div class="ipvia">${esc(p.comments)}</div>` : ''}</td>
+        <td><span class="pill ${p.action === 'accept' ? 'ok' : ''}">${esc(p.action || '')}</span>${p.nat ? ' <span class="tag">NAT</span>' : ''}</td>
+        <td>${ipList(p.srcintf)} → ${ipList(p.dstintf)}</td><td>${ipList(p.srcaddr)}</td><td>${ipList(p.dstaddr)}</td><td>${ipList(p.service)}</td><td>${how(p)}</td></tr>`).join(''))}
+  </div></details>`;
+}
+$('#ipForm').onsubmit = (e) => { e.preventDefault(); $('#ipQ').dataset.done = ''; runIpLookup(); };
+</script>
+</body>
+</html>
