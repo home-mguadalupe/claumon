@@ -370,6 +370,35 @@
   .m-exact { background:var(--ok-soft); color:var(--ok); }
   .m-broader { opacity:.75; }
   .ipvia { color:var(--muted); font-size:12px; }
+
+  /* ---------- security audit ---------- */
+  .sev { display:inline-block; min-width:64px; padding:0 8px; border-radius:999px; font-size:11.5px; font-weight:600; line-height:20px; text-align:center; text-transform:capitalize; white-space:nowrap; }
+  .sev-critical { background:var(--err); color:#fff; }
+  .sev-high { background:var(--err-soft); color:var(--err); }
+  .sev-medium { background:color-mix(in srgb, var(--warn) 16%, transparent); color:var(--warn); }
+  .sev-low { background:color-mix(in srgb, var(--focus) 14%, transparent); color:var(--focus); }
+  .sev-info { background:var(--surface-2); color:var(--muted); }
+  .secsum td.n { font-variant-numeric:tabular-nums; text-align:center; }
+  .secsum th.n { text-align:center; }
+  .secsum td.n.zero { color:var(--muted); opacity:.5; }
+  .secsum tbody tr { cursor:pointer; }
+  .secsum tbody tr:hover, .secsum tbody tr[aria-selected="true"] { background:var(--surface-2); }
+  .secfind { display:grid; gap:10px; }
+  .secfind details { border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .secfind summary { padding:10px 14px; cursor:pointer; display:flex; gap:10px; align-items:center; flex-wrap:wrap; background:var(--surface-2); }
+  .secfind summary b { flex:1; min-width:200px; }
+  .secfind details[open] summary { border-bottom:1px solid var(--line); }
+  .secfind .why { padding:12px 14px 4px; display:grid; gap:4px; font-size:13px; }
+  .secfind .why code { font-family:var(--mono); font-size:12px; background:var(--surface-2); padding:1px 5px; border-radius:4px; }
+  .secfind table { margin-top:6px; }
+  .secpass { columns:2 280px; padding:0; margin:8px 0 0; list-style:none; font-size:13px; }
+  .secpass li { padding:3px 0; break-inside:avoid; }
+  .secpass li::before { content:"✔ "; color:var(--ok); }
+  .secchg .kind { font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .secchg .kind.added { color:var(--ok); } .secchg .kind.removed { color:var(--err); } .secchg .kind.changed { color:var(--warn); }
+  .secchg .diff { display:grid; gap:2px; font-size:12.5px; }
+  .secchg .diff del { color:var(--err); text-decoration:line-through; text-decoration-thickness:1px; }
+  .secchg .diff ins { color:var(--ok); text-decoration:none; }
 </style>
 </head>
 <body>
@@ -384,6 +413,7 @@
     <a href="#backups" data-view="backups">Backups<span class="count" id="bkCount"></span></a>
     <a href="#inventory" data-view="inventory">Inventory<span class="count" id="invCount" hidden></span></a>
     <a href="#iplookup" data-view="iplookup">IP lookup</a>
+    <a href="#security" data-view="security">Security<span class="count" id="secCount" hidden></span></a>
     <a href="#push" data-view="push">Push</a>
   </nav>
   <button type="button" class="theme-btn" id="themeBtn" aria-label="Toggle dark theme">
@@ -416,6 +446,7 @@
       <div>
         <h2 id="fwTitle">Firewalls</h2>
         <div class="sub" id="fwSub"></div>
+        <div class="sub" id="fwAuto"></div>
       </div>
       <div class="btns">
         <button type="button" id="backupAll" hidden>Back up all</button>
@@ -577,6 +608,41 @@
     </div>
   </section>
 </div>
+<div class="view" data-view="security" hidden>
+  <section aria-labelledby="secAuditTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="secAuditTitle">Security audit</h2>
+        <div class="sub">Configuration weaknesses found in the newest backup of each firewall. Settings not in the backup are treated as FortiOS defaults.</div>
+      </div>
+      <div class="btns"><button type="button" id="secReload">Re-check</button></div>
+    </div>
+    <div id="secMsg" class="msg empty" style="margin:0 0 12px" role="status" aria-live="polite"></div>
+    <div class="wrap"><table class="secsum" id="secSum" hidden>
+      <thead><tr><th scope="col">Firewall</th><th scope="col" class="n">Critical</th><th scope="col" class="n">High</th><th scope="col" class="n">Medium</th><th scope="col" class="n">Low</th><th scope="col" class="n">Info</th><th scope="col" class="n" title="Security-relevant changes in the last 7 days">Changes (7 d)</th><th scope="col">Backup</th></tr></thead>
+      <tbody id="secSumBody"></tbody>
+    </table></div>
+  </section>
+  <section aria-labelledby="secChgTitle" id="secChgSec" hidden>
+    <h2 id="secChgTitle">Security-relevant changes</h2>
+    <div class="sub muted" style="margin:-8px 0 12px">Each backup compared with the one before it (last 20 per firewall): administrators, API users, trusted hosts, local-in policies, interface access, local users, VIPs, inbound policies, SSL-VPN, IPsec, SNMP, HA and key global settings, plus findings that appeared or were fixed. The firewall, severity and search filters below apply here too.</div>
+    <div id="secChgMsg" class="msg empty" style="margin:0 0 12px" role="status" aria-live="polite"></div>
+    <div class="secfind secchg" id="secChg"></div>
+  </section>
+  <section aria-labelledby="secFindTitle" id="secFindSec" hidden>
+    <h2 id="secFindTitle">Findings</h2>
+    <div class="toolbar">
+      <label>Firewall<select id="secFw"><option value="">All firewalls</option></select></label>
+      <label>Minimum severity<select id="secSev"><option value="">All</option><option>critical</option><option>high</option><option>medium</option><option>low</option></select></label>
+      <label>Category<select id="secCat"><option value="">All</option></select></label>
+      <label class="grow searchbox">Search<input type="search" id="secQ" placeholder="Object, VDOM, interface, detail…" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <div id="secFindMsg" class="msg empty" style="margin:0 0 12px" role="status" aria-live="polite"></div>
+    <div class="secfind" id="secFind"></div>
+    <div id="secPassed"></div>
+  </section>
+</div>
+
 <div class="view" data-view="iplookup" hidden>
   <section aria-labelledby="ipTitle">
     <h2 id="ipTitle">IP / network lookup</h2>
@@ -603,6 +669,7 @@
     <div id="ipResults"></div>
   </section>
 </div>
+
 </main>
 
 <script>
@@ -692,7 +759,7 @@ syncThemeBtn();
 // ---------- routing ----------
 // The hash holds the view plus its state, e.g. #inventory?dev=2&sec=vips&q=10.1
 // so links can be shared and the back button works.
-const VIEWS = ['firewalls', 'backups', 'inventory', 'iplookup', 'push'];
+const VIEWS = ['firewalls', 'backups', 'inventory', 'iplookup', 'security', 'push'];
 const route = () => {
   const [view, qs] = location.hash.slice(1).split('?');
   return { view: VIEWS.includes(view) ? view : VIEWS[0], params: new URLSearchParams(qs) };
@@ -722,6 +789,7 @@ function showView() {
   if (view === 'backups') applySearchState(params);
   if (view === 'push') loadPushHistory();
   if (view === 'iplookup') applyIpState(params);
+  if (view === 'security') applySecState(params);
 }
 window.addEventListener('popstate', showView);
 window.addEventListener('hashchange', showView);
@@ -729,7 +797,7 @@ window.addEventListener('hashchange', showView);
 // "/" focuses the search box of the current view, Esc clears it.
 document.addEventListener('keydown', (e) => {
   if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
-    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ' }[route().view];
+    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ', security: '#secQ' }[route().view];
     if (box) { e.preventDefault(); $(box).focus(); $(box).select(); }
   }
   if (e.key === 'Escape' && e.target.type === 'search' && e.target.value) {
@@ -792,7 +860,27 @@ async function loadFirewalls() {
     </tr>`).join('') : '<tr><td colspan="4" class="empty">No firewalls yet. Add one above to get started.</td></tr>';
   renderLastBackups();
   renderPushTargets();
+  renderAuto();
 }
+
+// Automatic backups / routing-table refresh: schedule in the header, last problem per row.
+// A status a person just produced (Test, Backup) is left alone.
+async function renderAuto() {
+  let a;
+  try { a = await api('GET', '/api/auto'); } catch { return; }
+  const every = (h) => h >= 24 && h % 24 === 0 ? (h === 24 ? 'daily' : `every ${h / 24} days`) : h === 1 ? 'hourly' : `every ${h} h`;
+  $('#fwAuto').textContent = [a.backupHours ? `Automatic backup ${every(a.backupHours)}` : 'Automatic backup off',
+    a.routesHours ? `routing tables refreshed ${every(a.routesHours)}` : ''].filter(Boolean).join(' · ');
+  for (const [id, r] of Object.entries(a.results)) {
+    const cell = document.querySelector(`#fwBody tr[data-id="${CSS.escape(id)}"] .status`);
+    if (!cell || (cell.textContent && !cell.dataset.auto)) continue;
+    const what = r.kind === 'backup' ? 'Automatic backup' : 'Routing table refresh';
+    if (r.ok && !r.warning) { if (cell.dataset.auto) { cell.textContent = ''; cell.className = 'status'; } continue; }
+    setMsg(cell, false, `✖ ${what} ${ago(r.at)}: ${esc(r.error || r.warning)}`);
+    cell.dataset.auto = '1';
+  }
+}
+setInterval(() => { if (route().view === 'firewalls' && fws.list?.length) { renderAuto(); loadBackups(); } }, 60000);
 
 // Newest backup of each firewall (the server names files "<name>_<host>_<time>.conf";
 // matched on the host, which survives renames). bk.list is sorted newest first.
@@ -827,16 +915,20 @@ function fwAction(btn, refresh = true) {
   const id = row.dataset.id;
   const status = row.querySelector('.status');
   return busy(btn, async () => {
-    status.className = 'status'; status.textContent = 'Working…';
+    status.className = 'status'; status.textContent = 'Working…'; delete status.dataset.auto;
     try {
       if (btn.dataset.act === 'test') {
         setMsg(status, true, '✔ ' + describe(await api('POST', `/api/firewalls/${id}/test`)));
         loadFirewallNames();
       } else if (btn.dataset.act === 'backup') {
         const r = await api('POST', `/api/firewalls/${id}/backup`);
-        setMsg(status, !r.ingest?.error, `✔ <a href="/api/backups/${encodeURIComponent(r.file)}">Saved</a> (${fmtSize(r.size)})`
+        const rtErr = r.routes?.error || (r.routes?.errors?.length
+          ? 'Routing table partly read: ' + r.routes.errors.map((e) => `${e.vdom} IPv${e.ipVersion}: ${e.error}`).join('; ') : '');
+        setMsg(status, !r.ingest?.error && !rtErr, `✔ <a href="/api/backups/${encodeURIComponent(r.file)}">Saved</a> (${fmtSize(r.size)})`
           + (r.ingest?.error ? ` · ✖ ${esc(r.ingest.error)}`
-            : r.ingest ? ` · <a href="#inventory?snap=${r.ingest.snapshotId}">view in inventory</a>` : ''));
+            : r.ingest ? ` · <a href="#inventory?snap=${r.ingest.snapshotId}">view in inventory</a>` : '')
+          + (r.routes && !r.routes.error ? ` · <a href="#inventory?snap=${r.ingest?.snapshotId || ''}&sec=routes">${r.routes.routes} routes</a>` : '')
+          + (rtErr ? ` · ✖ ${esc(rtErr)}` : ''));
         if (refresh) {
           await loadInventory();
           loadBackups();
@@ -1181,6 +1273,17 @@ const SECTIONS = {
     ['Status', (r) => `<span class="${r.status === 'disable' ? 'empty' : 'ok'}">${esc(r.status)}</span>`],
     ['Comments', (r) => esc(r.comments || '')],
   ]},
+  // Pulled live from the device with each backup and refreshed on a schedule (not in the config).
+  routes: { label: 'Routing table', id: (r) => `${r.ip_version}/${r.dst}/${r.gateway || ''}/${r.interface || ''}`, cols: [
+    ['VDOM', (r) => esc(r.vdom) + (r.vrf ? ` <span class="tag">VRF ${esc(r.vrf)}</span>` : '')],
+    ['Destination', (r) => `<b class="mono">${esc(r.dst)}</b>`],
+    ['Gateway', (r) => mono(r.gateway) || '<span class="empty">directly connected</span>'],
+    ['Interface', (r) => esc(r.interface || '') + (r.tunnel_parent && r.tunnel_parent !== r.interface ? ` <span class="empty">via ${esc(r.tunnel_parent)}</span>` : '')],
+    ['Type', (r) => `<span class="tag">${esc(r.type || '')}</span>`],
+    ['Distance', (r) => esc(r.distance ?? '')],
+    ['Priority', (r) => esc(r.priority ?? '')],
+    ['Metric', (r) => esc(r.metric ?? '')],
+  ]},
   phase1: { label: 'IPsec Phase 1', cols: [
     ['VDOM', (r) => esc(r.vdom)],
     ['Name', (r) => `<b>${esc(r.name)}</b>`],
@@ -1423,6 +1526,7 @@ const SECTION_ICONS = {
   policies: 'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z',
   routepolicies: 'M4 7h12m0 0-3-3m3 3-3 3M20 17H8m0 0 3-3m-3 3 3 3',
   interfaces: 'M3 7h18v10H3zM7 11v2M11 11v2M15 11v2',
+  routes: 'M6 21V9a3 3 0 0 1 3-3h9m0 0-3-3m3 3-3 3M6 21h0M18 21v-6m0 0-3 3m3-3 3 3',
   addresses: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
   addrgrps: 'M12 3 3 8l9 5 9-5zM3 13l9 5 9-5',
   services: 'M8 3v5M16 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
@@ -1439,7 +1543,7 @@ const icon = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="non
 const SECTION_GROUPS = [
   ['Overview', ['overview']],
   ['Firewall', ['policies', 'routepolicies']],
-  ['Network', ['interfaces']],
+  ['Network', ['interfaces', 'routes']],
   ['Objects', ['addresses', 'addrgrps', 'services', 'servicegrps', 'vips', 'ippools']],
   ['VPN', ['phase1', 'phase2', 'sslvpn']],
 ];
@@ -1462,7 +1566,7 @@ function renderTabs(shown) {
 const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
 const stripTags = (html) => html.replace(/<br>/g, ' ').replace(/<[^>]*>/g, '')
   .replace(/&(amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e]).trim();
-const rowKey = (r) => `${r._snap}/${r.vdom}/${SECTIONS[inv.section].xref?.(r) ?? r.name ?? ''}`;
+const rowKey = (r) => `${r._snap}/${r.vdom}/${SECTIONS[inv.section].xref?.(r) ?? SECTIONS[inv.section].id?.(r) ?? r.name ?? ''}`;
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
 // Section columns, with a Firewall column first when several firewalls are shown.
@@ -1500,12 +1604,22 @@ function renderInventory() {
   $('#invClear').hidden = !filtered;
   const [emptyTitle, emptyText] = !inv.selected.size ? ['No firewall selected', 'Choose one or more with the Firewall filter.']
     : inv.rows.length ? ['No matches', 'Nothing here matches the current search or VDOM.']
+    : inv.section === 'routes' ? ['No routing table yet', 'Routing tables are saved with every backup and refreshed automatically. Back up this firewall to get one now.']
     : [`No ${sec.label.toLowerCase()}`, 'The selected snapshot has none of these.'];
   const empty = `${icon(SECTION_ICONS[inv.section])}<b>${emptyTitle}</b>${emptyText}${
     filtered && inv.rows.length ? '<br><button type="button" data-clear>Clear filters</button>' : ''}`;
   const note = [];
   if (rows.length > MAX_ROWS) note.push(`Showing the first ${MAX_ROWS} of ${rows.length} rows — search or pick a VDOM to narrow down.`);
   if (inv.hidden?.size) note.push(`Hidden because empty: ${[...inv.hidden].join(', ')}`);
+  if (inv.section === 'routes' && inv.selected.size) {
+    for (const s of activeSnaps()) {
+      const pull = s.route_pull;
+      if (!pull) continue;
+      const errs = (pull.errors || []).map((e) => `${e.vdom} IPv${e.ipVersion}: ${e.error}`);
+      note.push(`${multi() ? s.hostname + ': ' : ''}live routing table pulled ${fmtShort(pull.taken_at)} (${ago(pull.taken_at)})`
+        + (errs.length ? ` — not read: ${errs.join('; ')}` : ''));
+    }
+  }
   if (rows.length) note.push('Tip: ↑ ↓ move between rows, Enter opens details.');
   $('#invNote').textContent = note.join('  ·  ');
   keepFocus($('#invTable'), () => {
@@ -1535,7 +1649,7 @@ const settingsList = (raw) => !raw || !Object.keys(raw).length ? '<div class="em
 
 const detailTitle = (r) => inv.section === 'policies' ? `Policy ${r.policyid}${r.name ? ' · ' + r.name : ''}`
   : inv.section === 'routepolicies' ? `Policy route ${r.seq_num}`
-  : inv.section === 'sslvpn' ? `SSL-VPN settings` : r.name ?? '';
+  : inv.section === 'sslvpn' ? `SSL-VPN settings` : inv.section === 'routes' ? `Route ${r.dst}` : r.name ?? '';
 
 function renderDetail() {
   const key = [...inv.open][0];
@@ -2161,7 +2275,8 @@ function pushData() {
   const d = {};
   for (const f of PUSH_FIELDS[pu.type] || []) {
     const wrap = $('#puForm').querySelector(`[data-k="${f.k}"]`);
-    if (wrap.hidden) continue;
+    // The firewall list can load before the form is rendered (push status still pending).
+    if (!wrap || wrap.hidden) continue;
     if (f.chips) {
       const pending = wrap.querySelector('input').value.split(',').map((x) => x.trim()).filter(Boolean);
       d[f.k] = [...wrap.querySelectorAll('.chip')].map((c) => c.dataset.v).concat(pending);
@@ -2304,10 +2419,6 @@ async function loadPushHistory() {
     </tr>`).join('') : '<tr><td colspan="5" class="empty">Nothing pushed yet.</td></tr>';
 }
 
-showView();
-loadFirewalls();
-loadPushStatus();
-loadInventory().then(loadBackups).then(showView);
 
 // ---------- IP lookup ----------
 const ipList = (a) => (a || []).map((x) => `<span class="tag">${esc(x)}</span>`).join(' ');
@@ -2328,25 +2439,53 @@ async function runIpLookup() {
   $('#ipMsg').className = 'msg empty'; $('#ipMsg').textContent = 'Searching…';
   $('#ipResults').innerHTML = '';
   try {
-    const r = await api('GET', `/api/inventory/iplookup?${params}`, null, ipCtl.signal);
+    // The route each firewall uses comes from the stored routing tables; a failure there
+    // (e.g. none stored yet) must not hide the object search.
+    const [r, rt] = await Promise.all([
+      api('GET', `/api/inventory/iplookup?${params}`, null, ipCtl.signal),
+      api('GET', `/api/routes/lookup?${new URLSearchParams({ q })}`, null, ipCtl.signal).catch((err) => {
+        if (err.name === 'AbortError') throw err;
+        return null;
+      }),
+    ]);
+    ipRoutes = rt;
     const t = r.totals;
     $('#ipMsg').className = 'msg ' + (r.devices.length ? 'ok' : '');
     $('#ipMsg').innerHTML = r.devices.length
       ? `<b>${esc(r.query)}</b>: ${t.objects} address objects, ${t.policies} policies on ${t.devices} firewalls — click a firewall to see its objects and policies${r.broader ? ' (including broader networks)' : ''}${r.truncated ? ' — object list truncated' : ''}.`
-      : `<b>${esc(r.query)}</b> is not configured anywhere${r.broader ? '' : ' (try “Include broader networks”)'}.`;
+      : `<b>${esc(r.query)}</b> is not in any address object${r.broader ? '' : ' (try “Include broader networks”)'}.`;
     ipData = r; fillIpFilters(); renderIpResults();
   } catch (err) {
     if (err.name === 'AbortError') return;
     $('#ipMsg').className = 'msg err'; $('#ipMsg').textContent = '✖ ' + err.message;
   }
 }
-let ipData = null;
+let ipData = null, ipRoutes = null;
+
+// Route used for the query on each firewall / VDOM (longest match; several rows = ECMP).
+function renderIpRoutes(f) {
+  const devs = (ipRoutes?.devices || []).filter((d) => !f.ipfFw || d.hostname.toLowerCase() === f.ipfFw);
+  const rows = devs.flatMap((d) => {
+    const pick = (v) => !f.ipfVdom || v.toLowerCase() === f.ipfVdom;
+    const lines = [
+      ...d.routes.filter((x) => pick(x.vdom)).map((x) => `<td>${esc(x.vdom)}${x.vrf ? ` <span class="tag">VRF ${esc(x.vrf)}</span>` : ''}</td>
+        <td class="mono"><b>${esc(x.dst)}</b></td><td class="mono">${x.gateway ? esc(x.gateway) : '<span class="sub">directly connected</span>'}</td>
+        <td>${esc(x.interface || '')}</td><td><span class="tag">${esc(x.type || '')}</span></td><td class="mono">${esc(x.distance ?? '')} / ${esc(x.priority ?? '')}</td>`),
+      ...d.noRoute.filter(pick).map((v) => `<td>${esc(v)}</td><td colspan="5" class="err">No route — traffic is dropped</td>`),
+      ...(d.unread || []).filter(pick).map((v) => `<td>${esc(v)}</td><td colspan="5" class="sub">Routing table could not be read</td>`),
+    ];
+    return lines.map((l, i) => `<tr>${i ? '' : `<td rowspan="${lines.length}"><b>${esc(d.hostname)}</b><div class="ipvia" title="${esc(fmtDate(d.takenAt))}">routes from ${ago(d.takenAt)}</div></td>`}${l}</tr>`);
+  });
+  if (!rows.length) return '';
+  return `<h3>Route used</h3><div class="wrap" style="margin-bottom:16px"><table><thead><tr><th scope="col">Firewall</th><th scope="col">VDOM</th><th scope="col">Route</th><th scope="col">Gateway</th><th scope="col">Interface</th><th scope="col">Type</th><th scope="col">Distance / Priority</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
 const IPF = ['ipfFw', 'ipfVdom', 'ipfField', 'ipfAction', 'ipfStatus', 'ipfMatch', 'ipfText', 'ipfWithPol'];
 function fillIpFilters() {
   const opts = (sel, vals) => { const cur = $(sel).value; $(sel).innerHTML = '<option value="">All</option>' + vals.map((v) => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join(''); };
-  opts('#ipfFw', ipData.devices.map((d) => d.hostname));
-  opts('#ipfVdom', [...new Set(ipData.devices.flatMap((d) => d.objects.map((o) => o.vdom)))].sort());
-  $('#ipFilters').hidden = !ipData.devices.length;
+  opts('#ipfFw', [...new Set([...ipData.devices, ...(ipRoutes?.devices || [])].map((d) => d.hostname))].sort());
+  opts('#ipfVdom', [...new Set([...ipData.devices.flatMap((d) => d.objects.map((o) => o.vdom)),
+    ...(ipRoutes?.devices || []).flatMap((d) => [...d.routes.map((x) => x.vdom), ...d.noRoute])])].sort());
+  $('#ipFilters').hidden = !ipData.devices.length && !ipRoutes?.devices.length;
 }
 // Applies the filters to the loaded result (no new server query).
 function filterIp() {
@@ -2369,13 +2508,14 @@ function renderIpResults() {
     const summary = !r.devices.length ? '' : `<div class="wrap" style="margin-bottom:16px"><table><thead><tr><th scope="col">Firewall</th><th scope="col">Address objects</th><th scope="col">Policies</th><th scope="col">VDOMs</th></tr></thead><tbody>${
       r.devices.map((d) => `<tr><td><a href="#ipdev-${d.snapshotId}" data-ipdev="${d.snapshotId}"><b>${esc(d.hostname)}</b></a></td><td>${d.objects.length}</td><td><span class="pill ${d.policies.length ? 'ok' : ''}">${d.policies.length}</span></td><td>${ipList([...new Set(d.objects.map((o) => o.vdom))])}</td></tr>`).join('')
     }</tbody></table></div>`;
-    $('#ipResults').innerHTML = summary + r.devices.map(renderIpDevice).join('');
+    const f = Object.fromEntries(['ipfFw', 'ipfVdom'].map((id) => [id, $('#' + id).value.trim().toLowerCase()]));
+    $('#ipResults').innerHTML = renderIpRoutes(f) + (r.devices.length ? '<h3>Address objects and policies</h3>' : '') + summary + r.devices.map(renderIpDevice).join('');
     $('#ipResults').querySelectorAll('[data-ipdev]').forEach((a) => a.onclick = (e) => {
       e.preventDefault();
       const el = document.getElementById('ipdev-' + a.dataset.ipdev);
       el.open = true; el.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' });
     });
-  if (!devs.length && r.totals.devices) $('#ipResults').innerHTML = '<p class="empty">No results match the filters.</p>';
+  if (!devs.length && r.totals.devices && !$('#ipResults').innerHTML.includes('Route used')) $('#ipResults').innerHTML = '<p class="empty">No results match the filters.</p>';
 }
 IPF.forEach((id) => $('#' + id).addEventListener(id === 'ipfText' ? 'input' : 'change', debounce(() => ipData && renderIpResults(), 150)));
 $('#ipfReset').onclick = () => { IPF.forEach((id) => { const el = $('#' + id); if (el.type === 'checkbox') el.checked = false; else el.value = ''; }); ipData && renderIpResults(); };
@@ -2395,6 +2535,172 @@ function renderIpDevice(d) {
   </div></details>`;
 }
 $('#ipForm').onsubmit = (e) => { e.preventDefault(); $('#ipQ').dataset.done = ''; runIpLookup(); };
+
+
+// ---------- security audit ----------
+const SEVS = ['critical', 'high', 'medium', 'low', 'info'];
+let secData = null;
+let secLoading = null;
+const sevPill = (s) => `<span class="sev sev-${esc(s)}">${esc(s)}</span>`;
+// Backticks-free rendering of "config x › edit y › set z" hints.
+const fixHtml = (s) => esc(s).replace(/(config |set |edit )[^›]+/g, (m) => `<code>${m.trim()}</code>`);
+
+function loadAudit(force) {
+  if (secData && !force) return Promise.resolve(secData);
+  if (secLoading) return secLoading;
+  $('#secMsg').className = 'msg empty';
+  $('#secMsg').textContent = 'Checking backups…';
+  secLoading = api('GET', '/api/audit').then((r) => {
+    secData = r;
+    const crit = r.devices.reduce((n, d) => n + (d.counts ? d.counts.critical + d.counts.high : 0), 0);
+    $('#secCount').hidden = !crit;
+    $('#secCount').textContent = crit;
+    $('#secCount').title = `${crit} critical / high findings`;
+    return r;
+  }).catch((err) => {
+    setMsg($('#secMsg'), false, esc(err.message));
+    throw err;
+  }).finally(() => { secLoading = null; });
+  return secLoading;
+}
+
+function secState() {
+  return { fw: $('#secFw').value, sev: $('#secSev').value, cat: $('#secCat').value, q: $('#secQ').value.trim() };
+}
+
+async function applySecState(p) {
+  try { await loadAudit(); } catch { return; }
+  fillSecFilters();
+  $('#secFw').value = p.get('fw') || '';
+  $('#secSev').value = p.get('sev') || '';
+  $('#secCat').value = p.get('cat') || '';
+  $('#secQ').value = p.get('q') || '';
+  renderSecurity();
+}
+
+function fillSecFilters() {
+  const keep = secState();
+  $('#secFw').innerHTML = '<option value="">All firewalls</option>' + secData.devices.map((d) => `<option value="${esc(d.file)}">${esc(d.device.hostname || d.file)}</option>`).join('');
+  const cats = [...new Set(Object.values(secData.checks).map((c) => c.category))].sort();
+  $('#secCat').innerHTML = '<option value="">All</option>' + cats.map((c) => `<option>${esc(c)}</option>`).join('');
+  $('#secFw').value = keep.fw; $('#secCat').value = keep.cat;
+}
+
+function syncSecHash() {
+  setHash('security', Object.entries(secState()), false);
+}
+
+function renderSecurity() {
+  const r = secData;
+  const st = secState();
+  if (!r.devices.length) {
+    $('#secMsg').className = 'msg empty';
+    $('#secMsg').textContent = 'No backups yet: back up a firewall first.';
+    $('#secSum').hidden = true; $('#secFindSec').hidden = true; $('#secChgSec').hidden = true;
+    return;
+  }
+  const total = r.devices.reduce((n, d) => n + (d.findings ? d.findings.length : 0), 0);
+  $('#secMsg').className = 'msg empty';
+  $('#secMsg').textContent = `${r.devices.length} firewall${r.devices.length === 1 ? '' : 's'} · ${Object.keys(r.checks).length} checks · ${total} findings. Click a firewall to show only its findings.`;
+  $('#secSum').hidden = false;
+  $('#secFindSec').hidden = false;
+  $('#secChgSec').hidden = false;
+  $('#secSumBody').innerHTML = r.devices.map((d) => `<tr data-file="${esc(d.file)}" aria-selected="${st.fw === d.file}" tabindex="0">
+      <td class="fwname"><b>${esc(d.device.hostname || d.file)}</b><span class="mono">${esc([d.device.model, d.device.version].filter(Boolean).join(' · '))}</span></td>
+      ${d.error ? `<td colspan="5" class="err">Could not read: ${esc(d.error)}</td>` : SEVS.map((s) => `<td class="n${d.counts[s] ? '' : ' zero'}">${d.counts[s] ? `<span class="sev sev-${s}" style="min-width:32px">${d.counts[s]}</span>` : '0'}</td>`).join('')}
+      <td class="n">${recentChanges(d) || '<span class="muted">0</span>'}</td>
+      <td class="num" title="${esc(d.file)}">${ago(d.takenAt)}</td></tr>`).join('');
+  $('#secSumBody').querySelectorAll('tr').forEach((tr) => {
+    const pick = () => { $('#secFw').value = $('#secFw').value === tr.dataset.file ? '' : tr.dataset.file; syncSecHash(); renderSecurity(); };
+    tr.onclick = pick;
+    tr.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+  });
+
+  // Group findings by check: one card per problem, listing every place it occurs.
+  const minSev = st.sev ? SEVS.indexOf(st.sev) : SEVS.length;
+  const q = st.q.toLowerCase();
+  const groups = new Map();
+  for (const d of r.devices) {
+    if (!d.findings || (st.fw && d.file !== st.fw)) continue;
+    for (const f of d.findings) {
+      if (SEVS.indexOf(f.severity) > minSev || (st.cat && f.category !== st.cat)) continue;
+      const fw = d.device.hostname || d.file;
+      if (q && ![fw, f.vdom, f.object, f.detail, f.title].some((v) => String(v || '').toLowerCase().includes(q))) continue;
+      if (!groups.has(f.check)) groups.set(f.check, []);
+      groups.get(f.check).push({ ...f, fw });
+    }
+  }
+  const list = [...groups.entries()].sort(([a], [b]) => SEVS.indexOf(r.checks[a].severity) - SEVS.indexOf(r.checks[b].severity));
+  const multi = !st.fw && r.devices.length > 1;
+  $('#secFindMsg').textContent = list.length ? '' : 'No findings match the filters.';
+  $('#secFind').innerHTML = list.map(([id, items]) => {
+    const c = r.checks[id];
+    const fws = new Set(items.map((i) => i.fw)).size;
+    const hasVdom = items.some((i) => i.vdom), hasObj = items.some((i) => i.object), hasDet = items.some((i) => i.detail);
+    const head = [multi && 'Firewall', hasVdom && 'VDOM', hasObj && 'Object', hasDet && 'Detail'].filter(Boolean);
+    const rows = items.map((i) => `<tr>${[multi && `<b>${esc(i.fw)}</b>`, hasVdom && esc(i.vdom || ''), hasObj && `<span class="mono">${esc(i.object || '')}</span>`, hasDet && esc(i.detail || '')].filter((x) => x !== false).map((x) => `<td>${x}</td>`).join('')}</tr>`).join('');
+    return `<details${SEVS.indexOf(c.severity) <= 1 ? ' open' : ''}>
+      <summary>${sevPill(c.severity)}<b>${esc(c.title)}</b><span class="tag">${esc(c.category)}</span>
+        <span class="pill">${items.length}${multi ? ` on ${fws} firewall${fws === 1 ? '' : 's'}` : ''}</span></summary>
+      <div class="why"><div><b>Why it matters:</b> ${esc(c.why)}</div><div><b>Fix:</b> ${fixHtml(c.fix)}</div></div>
+      ${head.length ? `<div class="wrap"><table><thead><tr>${head.map((h) => `<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>` : ''}
+    </details>`;
+  }).join('');
+
+  renderSecChanges(st, minSev, q);
+
+  // For one firewall, also list what is fine, so the result reads as a full report.
+  const d = st.fw && r.devices.find((x) => x.file === st.fw);
+  $('#secPassed').innerHTML = d && d.passed && !st.q && !st.sev && !st.cat
+    ? `<details style="margin-top:14px"><summary class="muted">${d.passed.length} checks passed or not applicable</summary><ul class="secpass">${
+      d.passed.map((id) => `<li>${esc(r.checks[id].title)}</li>`).join('')}</ul></details>` : '';
+}
+
+// Number of change items in the last 7 days.
+const recentChanges = (d) => (d.changes || []).filter((c) => Date.now() - new Date(c.to) < 7 * 864e5)
+  .reduce((n, c) => n + c.items.length + c.newFindings.length, 0);
+
+function renderSecChanges(st, minSev, q) {
+  const events = [];
+  for (const d of secData.devices) {
+    if (!d.changes || (st.fw && d.file !== st.fw)) continue;
+    const fw = d.device.hostname || d.file;
+    for (const c of d.changes) {
+      const rows = [
+        ...c.items.map((i) => ({ ...i })),
+        ...c.newFindings.map((f) => ({ check: f.check, area: 'New finding', vdom: f.vdom, object: f.object || f.title, kind: 'added', severity: f.severity, note: `${f.title}${f.detail ? ` · ${f.detail}` : ''}` })),
+        ...c.resolvedFindings.map((f) => ({ check: f.check, area: 'Fixed finding', vdom: f.vdom, object: f.object || f.title, kind: 'removed', severity: 'info', note: f.title })),
+      ].filter((r) => SEVS.indexOf(r.severity) <= minSev
+        && (!st.cat || !r.check || secData.checks[r.check]?.category === st.cat)
+        && (!q || [fw, r.area, r.vdom, r.object, r.note, ...(r.fields || []).flatMap((f) => [f.field, f.before, f.after])].some((v) => String(v || '').toLowerCase().includes(q))));
+      if (rows.length) events.push({ fw, ...c, rows });
+    }
+  }
+  events.sort((a, b) => new Date(b.to) - new Date(a.to));
+  $('#secChgMsg').textContent = events.length ? '' : secData.devices.some((d) => d.compared) ? 'No security-relevant changes match the filters.' : 'Changes appear once a firewall has at least two backups.';
+  const diff = (r) => r.note ? esc(r.note) : r.kind === 'removed' ? '' : `<div class="diff">${(r.fields || []).map((f) => `<div><span class="muted">${esc(f.field)}:</span> ${
+    f.before !== undefined ? `<del>${esc(f.before)}</del> → ` : ''}<ins>${esc(f.after)}</ins></div>`).join('')}</div>`;
+  $('#secChg').innerHTML = events.slice(0, 100).map((e, k) => {
+    const worst = SEVS.find((s) => e.rows.some((r) => r.severity === s));
+    return `<details${k < 3 ? ' open' : ''}>
+      <summary>${sevPill(worst)}<b>${esc(e.fw)}</b><span class="muted">${fmtShort(e.from)} → ${fmtShort(e.to)} · ${ago(e.to)}</span><span class="pill">${e.rows.length} change${e.rows.length === 1 ? '' : 's'}</span></summary>
+      <div class="wrap"><table><thead><tr><th scope="col">Severity</th><th scope="col">Area</th><th scope="col">VDOM</th><th scope="col">Object</th><th scope="col">Change</th><th scope="col">Details</th></tr></thead><tbody>${
+        e.rows.map((r) => `<tr><td>${sevPill(r.severity)}</td><td>${esc(r.area)}</td><td>${esc(r.vdom || '')}</td><td class="mono">${esc(r.object)}</td><td><span class="kind ${esc(r.kind)}">${esc(r.kind)}</span></td><td>${diff(r)}</td></tr>`).join('')
+      }</tbody></table></div>
+    </details>`;
+  }).join('');
+}
+
+['secFw', 'secSev', 'secCat'].forEach((id) => $('#' + id).addEventListener('change', () => { syncSecHash(); renderSecurity(); }));
+$('#secQ').addEventListener('input', debounce(() => { syncSecHash(); renderSecurity(); }, 150));
+$('#secReload').onclick = (e) => busy(e.target, async () => { try { await loadAudit(true); fillSecFilters(); renderSecurity(); } catch {} });
+
+// Start-up runs last: views read state declared anywhere above.
+showView();
+loadFirewalls();
+loadPushStatus();
+loadInventory().then(loadBackups).then(showView);
+loadAudit().catch(() => {});
 </script>
 </body>
 </html>

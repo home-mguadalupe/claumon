@@ -85,6 +85,9 @@ existing databases pick up new tables automatically.
 | `FGT_MASTER_KEY` | *(unset)* | Master key that encrypts the stored API keys (32 bytes, base64)          |
 | `FGT_MASTER_KEY_FILE` | `data/master.key` | Where the master key is read from / generated when `FGT_MASTER_KEY` is unset |
 | `ENABLE_PUSH`  | *(unset)*   | `1` allows the **Push** tab to change firewall configuration (see Security) |
+| `AUTO_BACKUP_HOURS` | `24`   | Back up every firewall automatically this often (`0` = off)               |
+| `AUTO_ROUTES_HOURS` | `1`    | Refresh every firewall's routing table this often (`0` = off; needs `DATABASE_URL`) |
+| `ROUTES_KEEP_DAYS`  | `30`   | Hourly routing tables older than this are deleted (the one each inventory snapshot shows is kept) |
 
 ## Using the UI
 
@@ -94,6 +97,11 @@ and API key: the firewall's name is taken from the device hostname when you save
 If the device can't be reached at that moment, it is listed under its IP until the
 next successful **Test** or **Backup**. **Test** shows hostname, model, firmware and
 serial number.
+
+Backups run automatically (every `AUTO_BACKUP_HOURS`, default daily) and each one also
+saves the firewall's live routing table; routing tables are refreshed again every
+`AUTO_ROUTES_HOURS` (default hourly). A firewall that fails is retried after 30 minutes
+and its error shows in its row. The **Backup** button does the same on demand.
 
 ### Backups
 - **Search configs**: searches inside the backup files as you type.
@@ -118,6 +126,12 @@ serial number.
   version and build, management IP (the address the backup was taken from), serial,
   VDOMs and last backup. Tick **All firewalls** to see the whole fleet; the VDOM filter
   shows the firewalls that have that VDOM. Click a row for the full VDOM list.
+- **Network → Routing table** is the live routing table (what `get router info routing-table all`
+  shows): every VDOM, IPv4 and IPv6, with gateway, interface, type, distance and priority.
+  It is not in the config, so it is read from the device with each backup and refreshed
+  hourly. Each snapshot shows the table that was current until the next backup; the note
+  under the table says when it was read. Needs read access to **Router** in the API admin
+  profile; a VDOM that could not be read is named there.
 - Click a firewall in the list on the left (filterable) to show just that one. The
   newest snapshot is selected by default; older ones are in the **Snapshot** dropdown.
 - Tick the checkboxes to view several firewalls at once, or **All firewalls**
@@ -140,6 +154,38 @@ serial number.
   the first 1000 matching rows; search or pick a VDOM to narrow down.
 - The view state lives in the URL (e.g. `#inventory?dev=1&sec=vips&q=172.30`), so
   you can bookmark or share a view and the browser back button works.
+
+### IP lookup
+Type an IP or network to see, per firewall: the **route used** for it in each VDOM (longest
+match from the stored routing table; several rows = ECMP; VDOMs with no route are flagged as
+dropping the traffic), the address objects that contain it and the policies using them.
+
+### Security
+Audits the newest backup of each firewall for configuration weaknesses and explains each
+one (why it matters and how to fix it). Nothing is read from the devices: the checks run on
+the backup files, so this works without the database too. Settings absent from a backup are
+treated as FortiOS defaults.
+
+| Area | Checks |
+|------|--------|
+| Administrators | admins and REST API users without trusted hosts, API users with `super_admin`, default `admin` account, local admins without two-factor, password policy off, weak lockout, long idle timeout, maintainer account |
+| Management access | admin access (HTTPS/SSH/HTTP/Telnet/SNMP/FGFM) on internet-facing interfaces (role `wan`, DHCP/PPPoE or a public IP), HTTP/Telnet anywhere, VDOMs without a local-in policy, SNMP `public`/`private` or unrestricted communities, HTTPS redirect off |
+| Crypto | TLS 1.0/1.1 on the admin GUI, strong-crypto off, private-data-encryption off, factory / self-signed certificate on the admin GUI or SSL-VPN, certificates in the config that are expired, expire within 30 days, use SHA-1/MD5 or RSA under 2048 bits |
+| VPN | IPsec with DES/3DES/MD5/SHA-1 or DH 1/2/5, IKEv1 aggressive mode with PSK, dial-up IPsec with PSK, local VPN users (SSL-VPN rules and policies, XAuth groups) without two-factor, SSL-VPN web mode, SSL-VPN enabled / allowing old TLS |
+| Firewall policy | asymmetric routing (stateful inspection off), accept all → all on `ALL`, inbound from WAN with source `all` or without an IPS profile, shadowed policies (fully covered by a policy above, compared by object name), VIPs publishing RDP/SMB/SSH/databases…, VIPs forwarding all ports |
+| Authentication / HA | LDAP servers without LDAPS/STARTTLS, HA heartbeat without authentication or encryption |
+| Logging / firmware | no remote logging, accept policies without logging, NTP off, FortiOS 6.x or older |
+
+**Security-relevant changes** compares each backup with the one before it (last 20 per
+firewall) and lists what changed: administrators and API users (including trusted hosts),
+local-in policies, interface admin access, local users, VIPs, policies from WAN interfaces,
+SSL-VPN, IPsec, SNMP, HA and key global settings, plus findings that appeared or were fixed.
+Changes that open management to the internet or remove a trusted-host restriction are
+marked critical. Only settings are compared, never secrets.
+
+The table at the top counts findings per firewall by severity (and changes in the last 7 days); click a firewall to see only
+its findings plus the checks it passed. Filter by severity, category or text; the view state
+is kept in the URL. **Re-check** reads new backups.
 
 ### Push
 Creates or updates objects on one or more firewalls through the REST API:
@@ -176,7 +222,9 @@ Keyboard: `/` focuses the search box, `Esc` clears it.
 ```
 server.js            HTTP server and JSON API
 public/index.html    the whole web UI
-lib/fortigate.js     FortiGate REST API client (status, config backup)
+lib/fortigate.js     FortiGate REST API client (status, config backup, routing table)
+lib/routes.js        routing tables: pull from firewalls, store, look up
+lib/audit.js         security checks on a backup (Security tab)
 lib/push.js          creating / updating objects and policies on firewalls
 lib/fgtparse.js      FortiOS config parser
 lib/extract.js       extracts inventory records from a parsed config
@@ -209,9 +257,15 @@ backups/             backup files (*.conf) + device metadata (*.meta.json)
 | GET    | `/api/search?q=&regex=1&case=1&in=&file=&after=&latest=1` | Search inside backups (`after` = lines below each match, `latest=1` = newest backup per device) |
 | GET    | `/api/firewalls/:id/vdoms`                   | VDOM names on the device             |
 | GET    | `/api/firewalls/:id/objects?vdom=`           | Object names on the device (for autocompletion) |
+| GET    | `/api/audit?file=&history=`                  | Security audit of the newest backup per device (or one file) and the changes between its last `history` (default 20) backups |
 | GET    | `/api/push/status`                           | Whether pushing is enabled, object types |
 | POST   | `/api/push`                                  | Create / update an object on firewalls. Body: `{ targets: [{ firewall: id, vdom }], type, data, update, dryRun }` (or `firewalls: [ids], vdom`); `type` = `address`, `addrgrp`, `service`, `servicegrp`, `policy`; `dryRun` only checks |
 | GET    | `/api/push/history?limit=`                   | Recent pushes, newest first          |
+| POST   | `/api/firewalls/:id/routes`                  | Read the routing table of every VDOM and store it |
+| GET    | `/api/routes/snapshots`                      | List stored routing tables           |
+| GET    | `/api/routes/snapshots/:id?vdom=&type=&q=&limit=&format=csv` | Routes of one pull (`q` = IP / prefix or text) |
+| DELETE | `/api/routes/snapshots/:id`                  | Delete a stored routing table        |
+| GET    | `/api/routes/lookup?q=&mode=best\|covering\|inside&all=1` | Which route each firewall / VDOM uses for an IP or network |
 | GET    | `/api/inventory/snapshots`                   | List inventory snapshots             |
 | GET    | `/api/inventory/snapshots/:id/:section`      | Rows of one section of a snapshot    |
 | GET    | `/api/inventory/snapshots/:id/xref/:section?vdom=&name=` | Settings, contents and where-used of one object (`name` = policy ID / route seq for policies) |

@@ -4,13 +4,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
-const { testConnection, backupConfig } = require('./lib/fortigate');
+const { testConnection } = require('./lib/fortigate');
+const jobs = require('./lib/jobs');
 const firewalls = require('./lib/firewalls');
 const { search } = require('./lib/search');
 const push = require('./lib/push');
+const { audit, compare, CHECKS } = require('./lib/audit');
 // Inventory DB is optional: only loaded when DATABASE_URL is set.
 const inventory = process.env.DATABASE_URL ? require('./lib/inventory') : null;
 const iplookup = process.env.DATABASE_URL ? require('./lib/iplookup') : null;
+const routes = process.env.DATABASE_URL ? require('./lib/routes') : null;
 
 const PORT = Number(process.env.PORT) || 3000;
 const BIND = process.env.BIND || '127.0.0.1';
@@ -53,13 +56,16 @@ function backupDevice(file) {
   };
 }
 
-// Firewalls added without a name take the device hostname. If the device was not
-// reachable when added, the name is filled in on the first successful test/backup.
-async function syncName(fw, status) {
-  if (!fw.autoName || !status.hostname) return;
-  fw.name = status.hostname;
-  fw.autoName = false;
-  await firewalls.rename(fw.id, fw.name);
+// Backup files never change once written, so each one is audited only once.
+const auditCache = new Map();
+function auditFile(full) {
+  const st = fs.statSync(full);
+  const key = `${full}|${st.mtimeMs}|${st.size}`;
+  if (!auditCache.has(key)) {
+    if (auditCache.size > 2000) auditCache.clear();
+    auditCache.set(key, audit(fs.readFileSync(full, 'utf8')));
+  }
+  return auditCache.get(key);
 }
 
 // ---------- http helpers ----------
@@ -159,6 +165,47 @@ async function handle(req, res) {
     }));
   }
 
+  // Security audit of the newest backup of each device (or of one ?file=), plus the
+  // security-relevant changes between its last ?history= (default 20) backups.
+  if (m === 'GET' && p === '/api/audit') {
+    const only = url.searchParams.get('file') ? path.basename(url.searchParams.get('file')) : null;
+    const history = Math.min(100, Math.max(0, Number(url.searchParams.get('history') ?? 20) || 0));
+    const byDevice = new Map();
+    for (const f of fs.readdirSync(BACKUP_DIR).filter((f) => f.endsWith('.conf'))) {
+      const b = { file: f, ...backupDevice(f) };
+      if (!byDevice.has(b.device)) byDevice.set(b.device, []);
+      byDevice.get(b.device).push(b);
+    }
+    const run = (f) => {
+      try {
+        return auditFile(path.join(BACKUP_DIR, f.file));
+      } catch (err) {
+        return { error: err.message };
+      }
+    };
+    const devices = [];
+    for (const [device, all] of byDevice) {
+      all.sort((a, b) => b.mtime - a.mtime);
+      const start = only ? all.findIndex((f) => f.file === only) : 0;
+      if (start === -1) continue;
+      const files = all.slice(start, start + history + 1);
+      const audits = files.map(run);
+      const { state, ...latest } = audits[0];
+      const changes = [];
+      for (let i = 0; i + 1 < files.length; i++) {
+        if (audits[i].error || audits[i + 1].error) continue;
+        const c = compare(audits[i + 1], audits[i]);
+        if (c.items.length || c.newFindings.length || c.resolvedFindings.length) {
+          changes.push({ from: files[i + 1].mtime, to: files[i].mtime, fromFile: files[i + 1].file, toFile: files[i].file, ...c });
+        }
+      }
+      devices.push({ file: files[0].file, takenAt: files[0].mtime, device: { hostname: device }, ...latest, changes, compared: files.length - 1 });
+    }
+    if (only && !devices.length) return send(res, 404, { error: 'Not found' });
+    devices.sort((a, b) => String(a.device.hostname).localeCompare(String(b.device.hostname)));
+    return send(res, 200, { checks: CHECKS, devices }, req);
+  }
+
   if (p.startsWith('/api/inventory/') && !inventory) {
     return send(res, 503, { error: 'Inventory database not configured (set DATABASE_URL)' });
   }
@@ -190,6 +237,48 @@ async function handle(req, res) {
     return send(res, 200, await inventory.snapshotRows(Number(match[1]), match[2]), req);
   }
 
+  // ---------- routing tables (stored in the inventory database) ----------
+  if (p.startsWith('/api/routes') && !routes) {
+    return send(res, 503, { error: 'Routing tables are stored in the inventory database: set DATABASE_URL' });
+  }
+
+  if (m === 'GET' && p === '/api/routes/snapshots') {
+    return send(res, 200, await routes.listSnapshots(), req);
+  }
+
+  // Which route each firewall uses for an IP / network: ?q=&mode=best|covering|inside&all=1
+  if (m === 'GET' && p === '/api/routes/lookup') {
+    const q = url.searchParams;
+    try {
+      return send(res, 200, await routes.lookup(q.get('q'), { mode: q.get('mode') || 'best', all: q.get('all') === '1' }), req);
+    } catch (err) {
+      if (/^(Enter an IP|Invalid)/.test(err.message)) return send(res, 400, { error: err.message });
+      throw err;
+    }
+  }
+
+  // Routes of one pull: ?vdom=&type=&q=&limit=&format=csv
+  match = p.match(/^\/api\/routes\/snapshots\/(\d+)$/);
+  if (m === 'GET' && match) {
+    const q = url.searchParams;
+    const r = await routes.snapshotRoutes(Number(match[1]), {
+      vdom: q.get('vdom'), type: q.get('type'), q: q.get('q'), limit: q.get('format') === 'csv' ? 50000 : q.get('limit'),
+    });
+    if (q.get('format') !== 'csv') return send(res, 200, r, req);
+    const cols = ['vdom', 'ip_version', 'type', 'dst', 'gateway', 'interface', 'distance', 'metric', 'priority', 'vrf', 'tunnel', 'tunnel_parent', 'installed_at'];
+    const cell = (v) => (v == null ? '' : v instanceof Date ? v.toISOString() : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+    const stamp = new Date(r.snapshot.taken_at).toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${safeName(r.snapshot.hostname)}_routes_${stamp}.csv"`,
+    });
+    return res.end([cols.join(','), ...r.routes.map((row) => cols.map((c) => cell(row[c])).join(','))].join('\n') + '\n');
+  }
+  if (m === 'DELETE' && match) {
+    await routes.deleteSnapshot(Number(match[1]));
+    return send(res, 200, { ok: true });
+  }
+
   // Load an existing backup file into the inventory database.
   match = p.match(/^\/api\/backups\/([^/]+)\/ingest$/);
   if (m === 'POST' && match) {
@@ -213,6 +302,11 @@ async function handle(req, res) {
   }
 
   // ---------- push configuration ----------
+  // Automatic backups / routing-table refresh: intervals and last result per firewall.
+  if (m === 'GET' && p === '/api/auto') {
+    return send(res, 200, jobs.status());
+  }
+
   if (m === 'GET' && p === '/api/push/status') {
     return send(res, 200, { enabled: PUSH_ENABLED, types: Object.fromEntries(Object.entries(push.TYPES).map(([k, t]) => [k, t.label])) });
   }
@@ -257,6 +351,15 @@ async function handle(req, res) {
     return send(res, 200, await push.suggestions(fw, url.searchParams.get('vdom')));
   }
 
+  // Reads the live routing table of every VDOM and stores it in the database.
+  match = p.match(/^\/api\/firewalls\/([\w-]+)\/routes$/);
+  if (m === 'POST' && match) {
+    if (!routes) return send(res, 503, { error: 'Routing tables are stored in the inventory database: set DATABASE_URL' });
+    const fw = await firewalls.get(match[1]);
+    if (!fw) return send(res, 404, { error: 'Firewall not found' });
+    return send(res, 200, await jobs.pullRoutes(fw));
+  }
+
   match = p.match(/^\/api\/firewalls\/([\w-]+)(?:\/(test|backup))?$/);
   if (match) {
     const [, id, action] = match;
@@ -270,32 +373,12 @@ async function handle(req, res) {
 
     if (m === 'POST' && action === 'test') {
       const status = await testConnection(fw);
-      await syncName(fw, status);
+      await jobs.syncName(fw, status.hostname);
       return send(res, 200, status);
     }
 
     if (m === 'POST' && action === 'backup') {
-      // Device status gives the serial, which the config file itself does not contain.
-      const status = await testConnection(fw);
-      await syncName(fw, status);
-      const config = await backupConfig(fw);
-      const takenAt = new Date();
-      const stamp = takenAt.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const file = `${safeName(fw.name)}_${safeName(fw.host)}_${stamp}.conf`;
-      const full = path.join(BACKUP_DIR, file);
-      fs.writeFileSync(full, config, { mode: 0o600 });
-      const meta = { ...status, host: fw.host, firewallName: fw.name, takenAt };
-      fs.writeFileSync(full.replace(/\.conf$/, '.meta.json'), JSON.stringify(meta, null, 2), { mode: 0o600 });
-
-      let ingest = null;
-      if (inventory) {
-        try {
-          ingest = await inventory.ingestFile(full);
-        } catch (err) {
-          ingest = { error: `Backup saved, but inventory ingest failed: ${err.message}` };
-        }
-      }
-      return send(res, 200, { file, size: config.length, ingest });
+      return send(res, 200, await jobs.backup(fw));
     }
   }
 
@@ -309,9 +392,14 @@ firewalls
       .createServer((req, res) =>
         handle(req, res).catch((err) => send(res, 400, { error: err.message }))
       )
-      .listen(PORT, BIND, () =>
+      .listen(PORT, BIND, () => {
         console.log(`FortiGate backup UI on http://${BIND}:${PORT} (firewalls stored in ${firewalls.backend}, `
-          + `config push ${PUSH_ENABLED ? 'ENABLED' : 'disabled - set ENABLE_PUSH=1 to enable'})`))
+          + `config push ${PUSH_ENABLED ? 'ENABLED' : 'disabled - set ENABLE_PUSH=1 to enable'})`);
+        jobs.start();
+        const a = jobs.status();
+        console.log(`Automatic backups: ${a.backupHours ? `every ${a.backupHours} h` : 'off'}, `
+          + `routing tables: ${a.routesHours ? `every ${a.routesHours} h` : 'off (needs DATABASE_URL)'}`);
+      })
   )
   .catch((err) => {
     console.error(`Startup failed: ${err.message}`);
