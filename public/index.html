@@ -399,6 +399,43 @@
   .secchg .diff { display:grid; gap:2px; font-size:12.5px; }
   .secchg .diff del { color:var(--err); text-decoration:line-through; text-decoration-thickness:1px; }
   .secchg .diff ins { color:var(--ok); text-decoration:none; }
+  .secpass li.na::before { content:"– "; color:var(--muted); }
+
+  /* ---------- compliance ---------- */
+  .cst { display:inline-block; min-width:64px; padding:0 8px; border-radius:999px; font-size:11.5px; font-weight:600; line-height:20px; text-align:center; white-space:nowrap; }
+  .cst-fail { background:var(--err-soft); color:var(--err); }
+  .cst-review { background:color-mix(in srgb, var(--warn) 16%, transparent); color:var(--warn); }
+  .cst-pass { background:var(--ok-soft); color:var(--ok); }
+  .cst-manual { background:color-mix(in srgb, var(--focus) 14%, transparent); color:var(--focus); }
+  .cst-na { background:var(--surface-2); color:var(--muted); }
+  .score { display:flex; align-items:center; gap:8px; min-width:150px; }
+  .score .bar { flex:1; height:8px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); overflow:hidden; }
+  .score .bar i { display:block; height:100%; background:var(--ok); }
+  .score .bar i.mid { background:var(--warn); } .score .bar i.low { background:var(--err); }
+  .score b { font-variant-numeric:tabular-nums; min-width:38px; text-align:right; }
+  .compsec { margin:18px 0 8px; font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; display:flex; gap:8px; align-items:baseline; }
+  .compsec:first-child { margin-top:0; }
+  .compctl summary .cid { font-family:var(--mono); font-size:12.5px; min-width:56px; color:var(--muted); }
+  .compctl summary .stats { display:flex; gap:4px; flex-wrap:wrap; }
+  .compctl .note { padding:12px 14px 0; font-size:13px; }
+  .compctl .chk { padding:10px 14px; border-top:1px solid var(--line); display:grid; gap:4px; font-size:13px; }
+  .compctl .chk:first-of-type { border-top:none; }
+  .compctl .chk .h { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .compctl .chk .why { padding:0; }
+  .compctl .chk code { font-family:var(--mono); font-size:12px; background:var(--surface-2); padding:1px 5px; border-radius:4px; }
+  .compctl .chk table { margin-top:4px; }
+  .mitcols { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px 20px; margin-top:6px; }
+  .mitcols > div { min-width:0; }
+  .mitcols h4 { margin:0 0 4px; font-size:12.5px; }
+  .mitcols ul, .mitcols ol { margin:0; padding-left:18px; display:grid; gap:3px; }
+  .mitundo { border:none !important; }
+  .secfind .mitundo summary { padding:2px 0; background:none; border:none; font-size:12.5px; color:var(--muted); }
+  .mitwhy { color:var(--fg); font-family:system-ui, sans-serif; }
+  .mitpath { padding:10px 14px 0; font:12.5px/1.6 var(--mono); color:var(--muted); overflow-wrap:anywhere; }
+  .imp { display:inline-block; padding:0 8px; border-radius:999px; font-size:11.5px; font-weight:600; line-height:20px; white-space:nowrap; }
+  .imp-safe { background:var(--ok-soft); color:var(--ok); }
+  .imp-review { background:color-mix(in srgb, var(--warn) 16%, transparent); color:var(--warn); }
+  .imp-risky { background:var(--err-soft); color:var(--err); }
 </style>
 </head>
 <body>
@@ -414,6 +451,8 @@
     <a href="#inventory" data-view="inventory">Inventory<span class="count" id="invCount" hidden></span></a>
     <a href="#iplookup" data-view="iplookup">IP lookup</a>
     <a href="#security" data-view="security">Security<span class="count" id="secCount" hidden></span></a>
+    <a href="#compliance" data-view="compliance">Compliance</a>
+    <a href="#mitigation" data-view="mitigation">Mitigation<span class="count" id="mitCount" hidden></span></a>
     <a href="#push" data-view="push">Push</a>
   </nav>
   <button type="button" class="theme-btn" id="themeBtn" aria-label="Toggle dark theme">
@@ -643,6 +682,59 @@
   </section>
 </div>
 
+<div class="view" data-view="compliance" hidden>
+  <section aria-labelledby="compTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="compTitle">Compliance</h2>
+        <div class="sub" id="compSub">Framework controls checked against the newest backup of each firewall.</div>
+      </div>
+      <div class="btns">
+        <div class="seg" role="radiogroup" aria-label="Framework" id="compFwk"></div>
+        <button type="button" id="compReport" title="Printable report for the selected firewall (or all), to save as PDF">PDF report</button>
+      </div>
+    </div>
+    <div id="compMsg" class="msg empty" style="margin:0 0 12px" role="status" aria-live="polite"></div>
+    <div class="wrap"><table class="secsum" id="compSum" hidden>
+      <thead><tr><th scope="col">Firewall</th><th scope="col" title="Controls without a failed check, out of those the checks could judge">Score</th><th scope="col" class="n">Fail</th><th scope="col" class="n" title="Automated checks passed; part of the control needs a person to confirm">Review</th><th scope="col" class="n">Pass</th><th scope="col" class="n" title="Can't be judged from a config backup">Manual</th><th scope="col" class="n">N/A</th><th scope="col">Backup</th></tr></thead>
+      <tbody id="compSumBody"></tbody>
+    </table></div>
+  </section>
+  <section aria-labelledby="compCtlTitle" id="compCtlSec" hidden>
+    <h2 id="compCtlTitle">Controls</h2>
+    <div class="toolbar">
+      <label>Firewall<select id="compDev"><option value="">All firewalls</option></select></label>
+      <label>Status<select id="compSt"><option value="">All</option><option value="fail">Fail</option><option value="review">Review</option><option value="pass">Pass</option><option value="manual">Manual</option><option value="na">Not applicable</option></select></label>
+      <label class="grow searchbox">Search<input type="search" id="compQ" placeholder="Control number, title, object…" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <div id="compCtlMsg" class="msg empty" style="margin:0 0 12px" role="status" aria-live="polite"></div>
+    <div class="secfind" id="compCtl"></div>
+  </section>
+</div>
+
+<div class="view" data-view="mitigation" hidden>
+  <section aria-labelledby="mitTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="mitTitle">Policy mitigation</h2>
+        <div class="sub">What to fix first across your firewalls, and how to fix each policy. Replace the &lt;placeholders&gt; with your own objects.</div>
+      </div>
+    </div>
+    <div class="wrap" style="margin-bottom:14px"><table class="secsum" id="mitSum" hidden>
+      <thead><tr><th scope="col">Firewall</th><th scope="col" class="n">Risky policies</th><th scope="col" class="n">Critical / high</th><th scope="col" class="n" title="Policies with a fix that should not affect traffic">Low impact</th><th scope="col" class="n">Review first</th><th scope="col" class="n" title="Policies needing a change that can stop traffic">Can break traffic</th><th scope="col">Backup</th></tr></thead>
+      <tbody id="mitSumBody"></tbody>
+    </table></div>
+    <div class="toolbar">
+      <label>Firewall<select id="mitDev"><option value="">All firewalls</option></select></label>
+      <label>Issue<select id="mitCheck"><option value="">All issues</option></select></label>
+      <label>Effort<select id="mitEffort"><option value="">Any</option><option value="safe">Low impact</option><option value="review">Review first</option><option value="risky">Can break traffic</option></select></label>
+      <label class="grow searchbox">Search<input type="search" id="mitQ" placeholder="Policy ID, name, interface, object…" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <div id="mitMsg" class="msg empty" style="margin:0 0 12px" role="status" aria-live="polite"></div>
+    <div class="secfind" id="mitList"></div>
+  </section>
+</div>
+
 <div class="view" data-view="iplookup" hidden>
   <section aria-labelledby="ipTitle">
     <h2 id="ipTitle">IP / network lookup</h2>
@@ -759,7 +851,7 @@ syncThemeBtn();
 // ---------- routing ----------
 // The hash holds the view plus its state, e.g. #inventory?dev=2&sec=vips&q=10.1
 // so links can be shared and the back button works.
-const VIEWS = ['firewalls', 'backups', 'inventory', 'iplookup', 'security', 'push'];
+const VIEWS = ['firewalls', 'backups', 'inventory', 'iplookup', 'security', 'compliance', 'mitigation', 'push'];
 const route = () => {
   const [view, qs] = location.hash.slice(1).split('?');
   return { view: VIEWS.includes(view) ? view : VIEWS[0], params: new URLSearchParams(qs) };
@@ -790,6 +882,8 @@ function showView() {
   if (view === 'push') loadPushHistory();
   if (view === 'iplookup') applyIpState(params);
   if (view === 'security') applySecState(params);
+  if (view === 'compliance') applyCompState(params);
+  if (view === 'mitigation') applyMitState(params);
 }
 window.addEventListener('popstate', showView);
 window.addEventListener('hashchange', showView);
@@ -797,7 +891,7 @@ window.addEventListener('hashchange', showView);
 // "/" focuses the search box of the current view, Esc clears it.
 document.addEventListener('keydown', (e) => {
   if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
-    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ', security: '#secQ' }[route().view];
+    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ', security: '#secQ', compliance: '#compQ', mitigation: '#mitQ' }[route().view];
     if (box) { e.preventDefault(); $(box).focus(); $(box).select(); }
   }
   if (e.key === 'Escape' && e.target.type === 'search' && e.target.value) {
@@ -2651,9 +2745,11 @@ function renderSecurity() {
 
   // For one firewall, also list what is fine, so the result reads as a full report.
   const d = st.fw && r.devices.find((x) => x.file === st.fw);
+  const na = (d && d.notApplicable) || [];
   $('#secPassed').innerHTML = d && d.passed && !st.q && !st.sev && !st.cat
-    ? `<details style="margin-top:14px"><summary class="muted">${d.passed.length} checks passed or not applicable</summary><ul class="secpass">${
-      d.passed.map((id) => `<li>${esc(r.checks[id].title)}</li>`).join('')}</ul></details>` : '';
+    ? `<details style="margin-top:14px"><summary class="muted">${d.passed.length} checks passed${na.length ? `, ${na.length} not applicable` : ''}</summary><ul class="secpass">${
+      d.passed.map((id) => `<li>${esc(r.checks[id].title)}</li>`).join('')}${
+      na.map((id) => `<li class="na" title="Not applicable: nothing in this config it applies to">${esc(r.checks[id].title)} <span class="muted">(n/a)</span></li>`).join('')}</ul></details>` : '';
 }
 
 // Number of change items in the last 7 days.
@@ -2694,6 +2790,274 @@ function renderSecChanges(st, minSev, q) {
 ['secFw', 'secSev', 'secCat'].forEach((id) => $('#' + id).addEventListener('change', () => { syncSecHash(); renderSecurity(); }));
 $('#secQ').addEventListener('input', debounce(() => { syncSecHash(); renderSecurity(); }, 150));
 $('#secReload').onclick = (e) => busy(e.target, async () => { try { await loadAudit(true); fillSecFilters(); renderSecurity(); } catch {} });
+
+// ---------- compliance ----------
+const CSTS = ['fail', 'review', 'pass', 'manual', 'na'];
+const CST_LABEL = { fail: 'Fail', review: 'Review', pass: 'Pass', manual: 'Manual', na: 'N/A' };
+const cstPill = (s, n) => `<span class="cst cst-${esc(s)}">${n != null ? `${n} ` : ''}${CST_LABEL[s]}</span>`;
+const compData = {}; // framework id -> /api/compliance response
+let compFwkId = 'cis';
+
+async function loadCompliance(fwk, force) {
+  if (compData[fwk] && !force) return compData[fwk];
+  $('#compMsg').className = 'msg empty';
+  $('#compMsg').textContent = 'Checking backups…';
+  try {
+    compData[fwk] = await api('GET', `/api/compliance?framework=${encodeURIComponent(fwk)}`);
+    return compData[fwk];
+  } catch (err) {
+    setMsg($('#compMsg'), false, esc(err.message));
+    throw err;
+  }
+}
+
+const compState = () => ({ framework: compFwkId, fw: $('#compDev').value, st: $('#compSt').value, q: $('#compQ').value.trim() });
+const syncCompHash = () => setHash('compliance', Object.entries(compState()), false);
+
+async function applyCompState(p) {
+  compFwkId = p.get('framework') || compFwkId;
+  let r;
+  try { r = await loadCompliance(compFwkId); } catch { return; }
+  if (!r.frameworks.some((f) => f.id === compFwkId)) compFwkId = r.frameworks[0].id;
+  fillCompFilters(r);
+  $('#compDev').value = p.get('fw') || '';
+  $('#compSt').value = p.get('st') || '';
+  $('#compQ').value = p.get('q') || '';
+  renderCompliance();
+}
+
+function fillCompFilters(r) {
+  const keep = $('#compDev').value;
+  $('#compFwk').innerHTML = r.frameworks.map((f) => `<button type="button" role="radio" aria-checked="${f.id === compFwkId}" data-fwk="${esc(f.id)}" title="${esc(`${f.name} ${f.version} · ${f.controls} controls`)}">${esc(f.name.replace(' Benchmark', ''))}</button>`).join('');
+  $('#compFwk').querySelectorAll('button').forEach((b) => {
+    b.onclick = async () => {
+      compFwkId = b.dataset.fwk;
+      try { fillCompFilters(await loadCompliance(compFwkId)); } catch { return; }
+      syncCompHash();
+      renderCompliance();
+    };
+  });
+  $('#compDev').innerHTML = '<option value="">All firewalls</option>' + r.devices.map((d) => `<option value="${esc(d.file)}">${esc(d.device.hostname || d.file)}</option>`).join('');
+  $('#compDev').value = r.devices.some((d) => d.file === keep) ? keep : '';
+}
+
+const scoreBar = (n) => n == null ? '<span class="muted">–</span>'
+  : `<div class="score"><div class="bar"><i class="${n < 60 ? 'low' : n < 85 ? 'mid' : ''}" style="width:${n}%"></i></div><b>${n}%</b></div>`;
+
+function renderCompliance() {
+  const r = compData[compFwkId];
+  if (!r) return;
+  const st = compState();
+  $('#compSub').textContent = `${r.framework.name} ${r.framework.version}. ${r.framework.note}`;
+  if (!r.devices.length) {
+    $('#compMsg').className = 'msg empty';
+    $('#compMsg').textContent = 'No backups yet: back up a firewall first.';
+    $('#compSum').hidden = true; $('#compCtlSec').hidden = true;
+    return;
+  }
+  const ok = r.devices.filter((d) => !d.error);
+  $('#compMsg').className = 'msg empty';
+  $('#compMsg').textContent = `${r.devices.length} firewall${r.devices.length === 1 ? '' : 's'} · ${r.frameworks.find((f) => f.id === compFwkId).controls} controls. Click a firewall to show only its results.`;
+  $('#compSum').hidden = false;
+  $('#compCtlSec').hidden = false;
+  $('#compSumBody').innerHTML = r.devices.map((d) => `<tr data-file="${esc(d.file)}" aria-selected="${st.fw === d.file}" tabindex="0">
+      <td class="fwname"><b>${esc(d.device.hostname || d.file)}</b><span class="mono">${esc([d.device.model, d.device.version].filter(Boolean).join(' · '))}</span></td>
+      ${d.error ? `<td colspan="6" class="err">Could not read: ${esc(d.error)}</td>` : `<td>${scoreBar(d.score)}</td>${CSTS.map((s) => `<td class="n${d.counts[s] ? '' : ' zero'}">${d.counts[s] ? `<span class="cst cst-${s}" style="min-width:32px">${d.counts[s]}</span>` : '0'}</td>`).join('')}`}
+      <td class="num" title="${esc(d.file)}">${ago(d.takenAt)}</td></tr>`).join('');
+  $('#compSumBody').querySelectorAll('tr').forEach((tr) => {
+    const pick = () => { $('#compDev').value = $('#compDev').value === tr.dataset.file ? '' : tr.dataset.file; syncCompHash(); renderCompliance(); };
+    tr.onclick = pick;
+    tr.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+  });
+
+  // Controls: one card each, with the status per firewall and the evidence behind it.
+  const devs = ok.filter((d) => !st.fw || d.file === st.fw);
+  const multi = devs.length > 1;
+  const q = st.q.toLowerCase();
+  const tmpl = devs[0] ? devs[0].sections : [];
+  let shown = 0;
+  const html = tmpl.map((sec, si) => {
+    const cards = sec.controls.map((c0, ci) => {
+      const per = devs.map((d) => ({ d, c: d.sections[si].controls[ci] }));
+      const statuses = per.map((x) => x.c.status);
+      if (st.st && !statuses.includes(st.st)) return '';
+      const objText = per.flatMap((x) => x.c.checks.flatMap((k) => k.findings.flatMap((f) => [f.vdom, f.object, f.detail])));
+      if (q && ![c0.id, c0.title, sec.title, ...(multi ? per.map((x) => x.d.device.hostname) : []), ...c0.checks.map((k) => r.checks[k.id].title), ...objText]
+        .some((v) => String(v || '').toLowerCase().includes(q))) return '';
+      shown++;
+      const worst = CSTS.find((s) => statuses.includes(s));
+      const stats = multi
+        ? CSTS.filter((s) => statuses.includes(s)).map((s) => cstPill(s, statuses.filter((x) => x === s).length)).join('')
+        : cstPill(worst);
+      const sev = per.map((x) => x.c.severity).filter(Boolean).sort((a, b) => SEVS.indexOf(a) - SEVS.indexOf(b))[0];
+      const checks = c0.checks.map((k0, ki) => {
+        const c = r.checks[k0.id];
+        const rows = per.flatMap((x) => x.c.checks[ki].findings.map((f) => ({ ...f, fw: x.d.device.hostname || x.d.file })));
+        const kst = per.map((x) => x.c.checks[ki].status);
+        const kstats = multi ? CSTS.filter((s) => kst.includes(s)).map((s) => cstPill(s, kst.filter((x) => x === s).length)).join('') : cstPill(kst[0]);
+        const hasVdom = rows.some((i) => i.vdom), hasObj = rows.some((i) => i.object), hasDet = rows.some((i) => i.detail);
+        const head = [multi && 'Firewall', hasVdom && 'VDOM', hasObj && 'Object', hasDet && 'Detail'].filter(Boolean);
+        return `<div class="chk"><div class="h">${kstats}${sevPill(c.severity)}<b>${esc(c.title)}</b></div>
+          ${kst.includes('fail') ? `<div class="why"><div><b>Why it matters:</b> ${esc(c.why)}</div><div><b>Fix:</b> ${fixHtml(c.fix)}</div></div>` : ''}
+          ${rows.length && head.length ? `<div class="wrap"><table><thead><tr>${head.map((h) => `<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${
+            rows.map((i) => `<tr>${[multi && `<b>${esc(i.fw)}</b>`, hasVdom && esc(i.vdom || ''), hasObj && `<span class="mono">${esc(i.object || '')}</span>`, hasDet && esc(i.detail || '')].filter((x) => x !== false).map((x) => `<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : ''}
+        </div>`;
+      }).join('');
+      const label = c0.status === 'manual' ? 'To check' : 'Also check';
+      return `<details class="compctl"${worst === 'fail' && (sev === 'critical' || sev === 'high') ? ' open' : ''}>
+        <summary><span class="cid">${esc(c0.id)}</span><b>${esc(c0.title)}</b>${sev && worst === 'fail' ? sevPill(sev) : ''}<span class="stats">${stats}</span></summary>
+        ${c0.note ? `<div class="note"><b>${label}:</b> ${esc(c0.note)}</div>` : ''}
+        ${checks || '<div class="chk muted">No automated check: this control needs a manual review.</div>'}
+      </details>`;
+    }).filter(Boolean);
+    return cards.length ? `<h3 class="compsec"><span class="mono">${esc(sec.id)}</span> ${esc(sec.title)}</h3>${cards.join('')}` : '';
+  }).join('');
+  $('#compCtl').innerHTML = html;
+  $('#compCtlMsg').textContent = shown ? '' : devs.length ? 'No controls match the filters.' : 'The selected firewall\'s backup could not be read.';
+}
+
+['compDev', 'compSt'].forEach((id) => $('#' + id).addEventListener('change', () => { syncCompHash(); renderCompliance(); }));
+$('#compQ').addEventListener('input', debounce(() => { syncCompHash(); renderCompliance(); }, 150));
+$('#compReport').onclick = () => {
+  const st = compState();
+  window.open(`/report?framework=${encodeURIComponent(st.framework)}${st.fw ? `&file=${encodeURIComponent(st.fw)}` : ''}`, '_blank', 'noopener');
+};
+
+// ---------- mitigation ----------
+const MIT_MAX_CARDS = 200;
+const MIT_OPEN_CARDS = 3;
+const MIT_IMPACT = { safe: 'Low impact', review: 'Review first', risky: 'Can break traffic' };
+const mit = { data: null };
+
+// **bold** and `code` in guidance text; everything else is escaped.
+const mitRich = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+
+// Every policy of the firewalls in view, most urgent first across firewalls.
+function mitAll() {
+  const fw = $('#mitDev').value;
+  return mit.data.devices.filter((d) => !d.error && (!fw || d.file === fw))
+    .flatMap((d) => d.policies.map((p) => ({ ...p, hostname: d.hostname })))
+    .sort((a, b) => b.priority - a.priority);
+}
+
+const mitHasEffort = (p, impact) => p.steps.some((s) => !s.alternative && s.impact === impact);
+
+function mitShown() {
+  const check = $('#mitCheck').value;
+  const effort = $('#mitEffort').value;
+  const q = $('#mitQ').value.trim().toLowerCase();
+  return mitAll().filter((p) => (!check || p.findings.some((f) => f.check === check))
+    && (!effort || mitHasEffort(p, effort))
+    && (!q || [`#${p.id}`, p.name, p.vdom, p.hostname, ...p.srcintf, ...p.dstintf, ...p.srcaddr, ...p.dstaddr, ...p.service, ...p.findings.map((f) => f.title)]
+      .some((v) => String(v || '').toLowerCase().includes(q))));
+}
+
+function mitWhy(p) {
+  return [`${p.severity[0].toUpperCase()}${p.severity.slice(1)} severity`,
+    p.exposed && 'reachable from the internet',
+    p.findings.length > 1 && `${p.findings.length} issues`,
+    mitHasEffort(p, 'safe') && 'has a low-impact fix'].filter(Boolean).join(' · ');
+}
+
+function mitInventoryLink(p) {
+  const dev = inv.devices.find((d) => d.hostname === p.hostname);
+  if (!dev) return '';
+  return `<a href="#inventory?dev=${dev.id}&sec=policies&q=${encodeURIComponent(p.name || p.id)}">Open in Inventory</a>`;
+}
+
+function mitStep(s) {
+  const list = (items, tag = 'ul') => `<${tag}>${items.map((i) => `<li>${mitRich(i)}</li>`).join('')}</${tag}>`;
+  const available = (s.available || []).map((a) => `<div><b>${esc(a.label)}:</b> ${a.names.length ? esc(a.names.join(', ')) : '<span class="muted">none in this backup, create one first</span>'}</div>`).join('');
+  return `<div class="chk"><div class="h"><span class="imp imp-${esc(s.impact)}">${MIT_IMPACT[s.impact]}</span><b>${esc(s.title)}</b></div>
+    <div class="muted">${esc(s.note)}</div>
+    <div class="mitcols">
+      <div><h4>Before you change it</h4>${list(s.before)}</div>
+      <div><h4>In the GUI</h4>${list(s.gui, 'ol')}</div>
+      <div><h4>In the CLI</h4><pre class="payload">${esc(s.commands.join('\n'))}</pre></div>
+      <div><h4>Check it worked</h4>${list(s.verify)}</div>
+    </div>
+    ${available ? `<div class="why"><div class="muted">Available in this backup:</div>${available}</div>` : ''}
+    <details class="mitundo"><summary>How to undo</summary><pre class="payload">${esc(s.undo.join('\n'))}</pre></details>
+  </div>`;
+}
+
+function mitCard(p, rank) {
+  const link = mitInventoryLink(p);
+  return `<details class="compctl"${rank <= MIT_OPEN_CARDS ? ' open' : ''}>
+    <summary><span class="cid">${rank}.</span><b>#${esc(p.id)} ${esc(p.name || '(no name)')}</b><span class="muted">${esc(p.hostname)}${p.vdom === 'root' ? '' : ` · ${esc(p.vdom)}`}</span>${sevPill(p.severity)}</summary>
+    <div class="mitpath"><span class="mitwhy">${esc(mitWhy(p))}</span><br>${esc(p.srcintf.join(', '))} → ${esc(p.dstintf.join(', '))} · ${esc(p.srcaddr.join(', ') || '-')} → ${esc(p.dstaddr.join(', ') || '-')} · ${esc(p.service.join(', ') || '-')}${link ? `<br>${link}` : ''}</div>
+    <div class="chk">${p.findings.map((f) => `<div class="h">${sevPill(f.severity)}<span>${esc(f.title)}${f.detail ? ` <span class="muted">(${esc(f.detail)})</span>` : ''}</span></div>`).join('')}</div>
+    ${p.steps.map(mitStep).join('')}
+  </details>`;
+}
+
+function renderMitSummary() {
+  const body = mit.data.devices.map((d) => {
+    if (d.error) return `<tr><td class="fwname"><b>${esc(d.hostname)}</b></td><td colspan="5" class="err">Could not read: ${esc(d.error)}</td><td class="num">${ago(d.takenAt)}</td></tr>`;
+    const n = (fn) => d.policies.filter(fn).length;
+    const cell = (v) => `<td class="n${v ? '' : ' zero'}">${v}</td>`;
+    return `<tr data-file="${esc(d.file)}" aria-selected="${$('#mitDev').value === d.file}" tabindex="0"><td class="fwname"><b>${esc(d.hostname)}</b></td>
+      ${cell(d.policies.length)}${cell(n((p) => ['critical', 'high'].includes(p.severity)))}${cell(n((p) => mitHasEffort(p, 'safe')))}${cell(n((p) => mitHasEffort(p, 'review')))}${cell(n((p) => mitHasEffort(p, 'risky')))}
+      <td class="num" title="${esc(d.file)}">${ago(d.takenAt)}</td></tr>`;
+  }).join('');
+  $('#mitSumBody').innerHTML = body;
+  $('#mitSum').hidden = !mit.data.devices.length;
+  $('#mitSumBody').querySelectorAll('tr[data-file]').forEach((tr) => {
+    const pick = () => { $('#mitDev').value = $('#mitDev').value === tr.dataset.file ? '' : tr.dataset.file; syncMitHash(); renderMitigation(); };
+    tr.onclick = pick;
+    tr.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+  });
+}
+
+function renderMitigation() {
+  renderMitSummary();
+  $('#mitList').innerHTML = '';
+  const msg = $('#mitMsg');
+  msg.className = 'msg empty';
+  if (!mit.data.devices.length) { msg.textContent = 'No backups yet: back up a firewall first.'; return; }
+  const total = mitAll().length;
+  if (!total) { msg.textContent = 'No risky policies found in these backups.'; return; }
+  const shown = mitShown();
+  const cards = shown.slice(0, MIT_MAX_CARDS);
+  msg.textContent = `${total} risky polic${total === 1 ? 'y' : 'ies'}, most urgent first: by severity, then internet exposure, then number of issues.`
+    + (shown.length > cards.length ? ` Showing the first ${cards.length} of ${shown.length}: use the filters to reach the rest.` : '')
+    + (shown.length ? '' : ' None match the filters.');
+  $('#mitList').innerHTML = cards.map((p, i) => mitCard(p, i + 1)).join('');
+}
+
+async function loadMitigation() {
+  if (mit.data) return mit.data;
+  $('#mitMsg').className = 'msg empty';
+  $('#mitMsg').textContent = 'Checking backups…';
+  try {
+    mit.data = await api('GET', '/api/mitigation');
+  } catch (err) {
+    setMsg($('#mitMsg'), false, esc(err.message));
+    throw err;
+  }
+  const open = mit.data.devices.reduce((n, d) => n + (d.policies?.length || 0), 0);
+  $('#mitCount').hidden = !open;
+  $('#mitCount').textContent = open;
+  $('#mitDev').innerHTML = '<option value="">All firewalls</option>' + mit.data.devices.map((d) => `<option value="${esc(d.file)}">${esc(d.hostname)}</option>`).join('');
+  const titles = new Map(mit.data.devices.flatMap((d) => (d.policies || []).flatMap((p) => p.findings.map((f) => [f.check, f.title]))));
+  $('#mitCheck').innerHTML = '<option value="">All issues</option>' + [...titles].map(([k, t]) => `<option value="${esc(k)}">${esc(t)}</option>`).join('');
+  return mit.data;
+}
+
+const syncMitHash = () => setHash('mitigation', [['fw', $('#mitDev').value], ['check', $('#mitCheck').value], ['effort', $('#mitEffort').value], ['q', $('#mitQ').value.trim()]], false);
+
+async function applyMitState(p) {
+  try { await loadMitigation(); } catch { return; }
+  const known = (sel, v) => ([...$(sel).options].some((o) => o.value === v) ? v : '');
+  $('#mitDev').value = known('#mitDev', p.get('fw') || '');
+  $('#mitCheck').value = known('#mitCheck', p.get('check') || '');
+  $('#mitEffort').value = known('#mitEffort', p.get('effort') || '');
+  $('#mitQ').value = p.get('q') || '';
+  renderMitigation();
+}
+
+['mitDev', 'mitCheck', 'mitEffort'].forEach((id) => $('#' + id).addEventListener('change', () => { syncMitHash(); renderMitigation(); }));
+$('#mitQ').addEventListener('input', debounce(() => { syncMitHash(); renderMitigation(); }, 150));
 
 // Start-up runs last: views read state declared anywhere above.
 showView();

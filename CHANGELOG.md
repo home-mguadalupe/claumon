@@ -1,5 +1,50 @@
 # Changelog
 
+## 2026-11-08 — Policy mitigation
+
+### New: Mitigation tab
+Ranks the risky firewall policies across your firewalls and shows how to fix each one.
+Guidance only: nothing is sent to the firewall.
+
+- Fixes with their likely impact: turn on logging, add security profiles, narrow `all` /
+  `ALL`, disable or move a shadowed policy.
+- Each fix has pre-checks, GUI steps, CLI, how to confirm it worked and how to undo it.
+- Ranking by severity, internet exposure and number of issues, with a summary per firewall.
+- Filters by firewall, issue, effort and text.
+- API: `GET /api/mitigation`.
+
+## 2026-11-08 — Compliance
+
+### New: Compliance tab
+Shows how each firewall's newest backup measures up against a compliance framework. Like
+the Security tab, it runs on the backup files, so nothing is read from the devices and no
+database is needed.
+
+- **CIS FortiGate Benchmark** (7.4.x numbering, 52 controls) and **PCI DSS 4.0.1** (37
+  requirements a firewall configuration can give evidence for). Titles are our own short
+  summaries; check the CIS numbering against your licensed copy of the benchmark.
+- Each control is **Fail**, **Review** (checks passed but cover only part of it), **Pass**,
+  **Manual** (can't be judged from a config) or **N/A**, with the findings behind a failure,
+  the fix, and what still needs a person to confirm.
+- A score per firewall, a filter by firewall, status and text, and the view kept in the URL.
+- **PDF report** (`/report`): a printable report per firewall or for the fleet, with a summary,
+  every control with evidence, remediation sorted by severity, and a reviewer checklist with
+  sign-off lines. Saved as PDF from the browser, so no new dependency.
+- API: `GET /api/compliance?framework=cis|pci&file=`.
+
+### Security audit: 16 new checks (57 in total)
+Pre-login and post-login banners, admin passwords shorter than 12 characters, default admin
+ports, USB auto-install, TLS static key ciphers, anti-spoofing (`src-check`) off, intra-zone
+traffic allowed, accept policies on service `ALL`, internet-bound policies without security
+profiles, DNS filter not blocking botnet domains / not logging all queries, scheduled
+FortiGuard updates off, event logging off, unencrypted remote logging, HA without monitored
+interfaces.
+
+### Changed
+- Checks that don't apply to a config (no HA, no SSL-VPN, no VIPs, no API users…) are now
+  reported as **not applicable** instead of passed (`notApplicable` in `/api/audit`).
+- The admin idle timeout is flagged above 15 minutes (was 30), as PCI DSS 8.2.8 requires.
+
 ## 2026-11-08 — Security audit, routing tables, scheduled jobs
 
 ### New: Security tab
