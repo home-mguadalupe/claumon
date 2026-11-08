@@ -265,6 +265,46 @@ CREATE INDEX IF NOT EXISTS addresses_subnet_gist ON addresses USING gist (subnet
 CREATE INDEX IF NOT EXISTS addresses_range_idx ON addresses (start_ip, end_ip) WHERE start_ip IS NOT NULL;
 CREATE INDEX IF NOT EXISTS object_refs_ref_idx ON object_refs (snapshot_id, vdom, ref_type, ref_id);
 
+-- Active routing table pulled live from the device (REST monitor API), not from the
+-- config backup: one route snapshot per pull, one row per route (ECMP routes are
+-- separate rows). `raw` keeps every field FortiOS returned.
+CREATE TABLE IF NOT EXISTS route_snapshots (
+  id          serial PRIMARY KEY,
+  device_id   int NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  firewall_id text,                      -- firewall entry in the web UI it was pulled from
+  host        text,
+  fw_version  text,
+  fw_build    int,
+  vdoms       text[] NOT NULL,
+  errors      jsonb NOT NULL DEFAULT '[]', -- VDOM / IP version that could not be read
+  taken_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS route_snapshots_device_idx ON route_snapshots (device_id, taken_at DESC);
+
+CREATE TABLE IF NOT EXISTS routes (
+  route_snapshot_id int NOT NULL REFERENCES route_snapshots(id) ON DELETE CASCADE,
+  vdom          text NOT NULL,
+  ip_version    smallint NOT NULL,
+  type          text,                    -- connect, static, bgp, ospf, rip, isis, ...
+  dst           inet NOT NULL,           -- destination prefix
+  gateway       inet,                    -- NULL for directly connected routes
+  interface     text,
+  distance      int,
+  metric        int,
+  priority      int,
+  vrf           int,
+  tunnel        boolean NOT NULL DEFAULT false,
+  tunnel_parent text,                    -- IPsec dial-up / tunnel parent interface
+  installed_at  timestamptz,
+  raw           jsonb NOT NULL
+);
+CREATE INDEX IF NOT EXISTS routes_snapshot_idx ON routes (route_snapshot_id, vdom);
+CREATE INDEX IF NOT EXISTS routes_dst_gist ON routes USING gist (dst inet_ops);
+
+DROP VIEW IF EXISTS latest_route_snapshots;
+CREATE VIEW latest_route_snapshots AS
+SELECT DISTINCT ON (device_id) * FROM route_snapshots ORDER BY device_id, taken_at DESC;
+
 -- Latest snapshot per device, for "current state" queries. Dropped and recreated: s.*
 -- changes when snapshots gains a column, which CREATE OR REPLACE VIEW cannot handle.
 DROP VIEW IF EXISTS latest_snapshots;

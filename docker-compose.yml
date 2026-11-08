@@ -10,6 +10,9 @@ services:
       DATABASE_URL: postgres://fortiinv:${PGPASSWORD:-fortiinv}@postgres:5432/fortiinv
       ENABLE_PUSH: ${ENABLE_PUSH:-}
       FGT_MASTER_KEY: ${FGT_MASTER_KEY:-}
+      AUTO_BACKUP_HOURS: ${AUTO_BACKUP_HOURS:-}
+      AUTO_ROUTES_HOURS: ${AUTO_ROUTES_HOURS:-}
+      ROUTES_KEEP_DAYS: ${ROUTES_KEEP_DAYS:-}
     ports:
       - "127.0.0.1:${PORT:-3000}:3000"
     volumes:
