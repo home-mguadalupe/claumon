@@ -168,13 +168,15 @@ treated as FortiOS defaults.
 
 | Area | Checks |
 |------|--------|
-| Administrators | admins and REST API users without trusted hosts, API users with `super_admin`, default `admin` account, local admins without two-factor, password policy off, weak lockout, long idle timeout, maintainer account |
-| Management access | admin access (HTTPS/SSH/HTTP/Telnet/SNMP/FGFM) on internet-facing interfaces (role `wan`, DHCP/PPPoE or a public IP), HTTP/Telnet anywhere, VDOMs without a local-in policy, SNMP `public`/`private` or unrestricted communities, HTTPS redirect off |
-| Crypto | TLS 1.0/1.1 on the admin GUI, strong-crypto off, private-data-encryption off, factory / self-signed certificate on the admin GUI or SSL-VPN, certificates in the config that are expired, expire within 30 days, use SHA-1/MD5 or RSA under 2048 bits |
+| Administrators | admins and REST API users without trusted hosts, API users with `super_admin`, default `admin` account, local admins without two-factor, password policy off or allowing passwords under 12 characters, weak lockout, idle timeout over 15 minutes, maintainer account, no pre-/post-login banner |
+| Management access | admin access (HTTPS/SSH/HTTP/Telnet/SNMP/FGFM) on internet-facing interfaces (role `wan`, DHCP/PPPoE or a public IP), HTTP/Telnet anywhere, VDOMs without a local-in policy, SNMP `public`/`private` or unrestricted communities, HTTPS redirect off, default admin ports (443 / 22) |
+| System hardening | USB firmware / configuration auto-install on |
+| Crypto | TLS 1.0/1.1 on the admin GUI, strong-crypto off, TLS static key ciphers allowed, private-data-encryption off, factory / self-signed certificate on the admin GUI or SSL-VPN, certificates in the config that are expired, expire within 30 days, use SHA-1/MD5 or RSA under 2048 bits |
 | VPN | IPsec with DES/3DES/MD5/SHA-1 or DH 1/2/5, IKEv1 aggressive mode with PSK, dial-up IPsec with PSK, local VPN users (SSL-VPN rules and policies, XAuth groups) without two-factor, SSL-VPN web mode, SSL-VPN enabled / allowing old TLS |
-| Firewall policy | asymmetric routing (stateful inspection off), accept all → all on `ALL`, inbound from WAN with source `all` or without an IPS profile, shadowed policies (fully covered by a policy above, compared by object name), VIPs publishing RDP/SMB/SSH/databases…, VIPs forwarding all ports |
-| Authentication / HA | LDAP servers without LDAPS/STARTTLS, HA heartbeat without authentication or encryption |
-| Logging / firmware | no remote logging, accept policies without logging, NTP off, FortiOS 6.x or older |
+| Firewall policy | asymmetric routing (stateful inspection off), accept all → all on `ALL`, accept policies on service `ALL`, anti-spoofing (`src-check`) off, zones allowing intra-zone traffic, inbound from WAN with source `all` or without an IPS profile, shadowed policies (fully covered by a policy above, compared by object name), VIPs publishing RDP/SMB/SSH/databases…, VIPs forwarding all ports |
+| Security profiles | internet-bound policies without any security profile, DNS filters not blocking botnet domains or not logging all queries |
+| Authentication / HA | LDAP servers without LDAPS/STARTTLS, HA heartbeat without authentication or encryption, HA without monitored interfaces |
+| Logging / firmware | no remote logging, syslog without encryption (or FortiAnalyzer with `enc-algorithm low`), event logging off, accept policies without logging, NTP off, scheduled FortiGuard updates off, FortiOS 6.x or older |
 
 **Security-relevant changes** compares each backup with the one before it (last 20 per
 firewall) and lists what changed: administrators and API users (including trusted hosts),
@@ -184,8 +186,52 @@ Changes that open management to the internet or remove a trusted-host restrictio
 marked critical. Only settings are compared, never secrets.
 
 The table at the top counts findings per firewall by severity (and changes in the last 7 days); click a firewall to see only
-its findings plus the checks it passed. Filter by severity, category or text; the view state
-is kept in the URL. **Re-check** reads new backups.
+its findings plus the checks it passed and those that are not applicable (e.g. HA checks on a
+standalone unit). Filter by severity, category or text; the view state is kept in the URL.
+**Re-check** reads new backups.
+
+### Compliance
+Maps the security checks to the controls of a compliance framework and shows, per firewall,
+which controls pass, fail or need a person to confirm them. Like the Security tab, it works
+on the newest backup of each firewall and needs no database.
+
+- **Frameworks**: **CIS FortiGate Benchmark** (7.4.x numbering) and **PCI DSS 4.0.1** (the
+  requirements a firewall configuration can give evidence for: Req. 1, 2, 4, 5, 6, 7, 8, 10, 11).
+  Control titles are short summaries written for this tool, not the frameworks' text.
+  The CIS numbering changes between benchmark versions: check it against your licensed copy.
+- **Status** of each control:
+
+  | Status | Meaning |
+  |--------|---------|
+  | Fail   | at least one mapped check found a problem |
+  | Review | the mapped checks passed, but they cover only part of the control; what to confirm is shown |
+  | Pass   | the mapped checks fully cover the control and passed |
+  | Manual | can't be judged from a config backup (e.g. passwords, log retention, rule reviews) |
+  | N/A    | the config has nothing the control applies to (no HA, no SSL-VPN, no VIPs…) |
+
+- **Score** = controls without a failure ÷ controls the checks could judge (fail + review + pass).
+- Click a firewall to see only its results; filter by status or text. Each control lists its
+  mapped checks with the findings behind a failure (VDOM, object, detail) and the fix.
+- **PDF report** opens a printable report for the selected firewall (or all): scope and
+  backup used, summary, every control with status and evidence, remediation sorted by
+  severity, and a reviewer checklist with sign-off lines for the review and manual controls.
+  Use the browser's **Print → Save as PDF**.
+
+### Mitigation
+Shows what to fix first and how, for the risky firewall policies the audit finds in each
+firewall's newest backup. It is guidance only; nothing is sent to the firewall.
+
+Policies are ranked across firewalls by severity, then internet exposure, then number of
+issues. A summary per firewall counts them by effort, which you can also filter on. Each fix
+lists what to check beforehand, the GUI steps, the CLI, how to confirm it worked, and how to
+undo it. With the inventory database, a policy links to its row in Inventory.
+
+| Issue | How to fix it | Impact |
+|-------|---------------|--------|
+| Logging off | `set logtraffic all` | Low impact |
+| Inbound without IPS, internet-bound without profiles | Add security profiles (the ones in the backup are listed) | Review first |
+| Any-to-any, service `ALL`, inbound from any source | Replace the wildcard with specific objects | Can break traffic |
+| Shadowed policy | Disable it if not needed (low impact), or move it above the broader policy (can break traffic) | |
 
 ### Push
 Creates or updates objects on one or more firewalls through the REST API:
@@ -225,6 +271,9 @@ public/index.html    the whole web UI
 lib/fortigate.js     FortiGate REST API client (status, config backup, routing table)
 lib/routes.js        routing tables: pull from firewalls, store, look up
 lib/audit.js         security checks on a backup (Security tab)
+lib/compliance.js    CIS / PCI DSS control mappings and scoring (Compliance tab)
+public/report.html   printable compliance report (/report)
+lib/mitigation.js    fix steps and priority of each risky policy (Mitigation tab)
 lib/push.js          creating / updating objects and policies on firewalls
 lib/fgtparse.js      FortiOS config parser
 lib/extract.js       extracts inventory records from a parsed config
@@ -258,6 +307,9 @@ backups/             backup files (*.conf) + device metadata (*.meta.json)
 | GET    | `/api/firewalls/:id/vdoms`                   | VDOM names on the device             |
 | GET    | `/api/firewalls/:id/objects?vdom=`           | Object names on the device (for autocompletion) |
 | GET    | `/api/audit?file=&history=`                  | Security audit of the newest backup per device (or one file) and the changes between its last `history` (default 20) backups |
+| GET    | `/api/compliance?framework=&file=`           | Compliance with `cis` (default) or `pci` of the newest backup per device (or one file): score, counts and every control's status with its evidence |
+| GET    | `/report?framework=&file=`                   | Printable compliance report (HTML, save as PDF from the browser) |
+| GET    | `/api/mitigation`                            | Risky policies of the newest backup per device and how to fix each one |
 | GET    | `/api/push/status`                           | Whether pushing is enabled, object types |
 | POST   | `/api/push`                                  | Create / update an object on firewalls. Body: `{ targets: [{ firewall: id, vdom }], type, data, update, dryRun }` (or `firewalls: [ids], vdom`); `type` = `address`, `addrgrp`, `service`, `servicegrp`, `policy`; `dryRun` only checks |
 | GET    | `/api/push/history?limit=`                   | Recent pushes, newest first          |

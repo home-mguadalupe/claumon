@@ -10,6 +10,8 @@ const firewalls = require('./lib/firewalls');
 const { search } = require('./lib/search');
 const push = require('./lib/push');
 const { audit, compare, CHECKS } = require('./lib/audit');
+const compliance = require('./lib/compliance');
+const mitigation = require('./lib/mitigation');
 // Inventory DB is optional: only loaded when DATABASE_URL is set.
 const inventory = process.env.DATABASE_URL ? require('./lib/inventory') : null;
 const iplookup = process.env.DATABASE_URL ? require('./lib/iplookup') : null;
@@ -68,6 +70,26 @@ function auditFile(full) {
   return auditCache.get(key);
 }
 
+// Backups grouped by device, newest first.
+function backupsByDevice() {
+  const byDevice = new Map();
+  for (const f of fs.readdirSync(BACKUP_DIR).filter((f) => f.endsWith('.conf'))) {
+    const b = { file: f, ...backupDevice(f) };
+    if (!byDevice.has(b.device)) byDevice.set(b.device, []);
+    byDevice.get(b.device).push(b);
+  }
+  for (const all of byDevice.values()) all.sort((a, b) => b.mtime - a.mtime);
+  return byDevice;
+}
+
+function auditOrError(file) {
+  try {
+    return auditFile(path.join(BACKUP_DIR, file));
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
 // ---------- http helpers ----------
 // Large inventory responses (tens of thousands of objects) are gzipped when `req` is given.
 function send(res, status, data, req) {
@@ -106,9 +128,9 @@ async function handle(req, res) {
   const p = url.pathname;
   const m = req.method;
 
-  if (m === 'GET' && p === '/') {
+  if (m === 'GET' && (p === '/' || p === '/report')) {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    return fs.createReadStream(path.join(__dirname, 'public', 'index.html')).pipe(res);
+    return fs.createReadStream(path.join(__dirname, 'public', p === '/' ? 'index.html' : 'report.html')).pipe(res);
   }
 
   if (m === 'GET' && p === '/api/firewalls') {
@@ -170,22 +192,9 @@ async function handle(req, res) {
   if (m === 'GET' && p === '/api/audit') {
     const only = url.searchParams.get('file') ? path.basename(url.searchParams.get('file')) : null;
     const history = Math.min(100, Math.max(0, Number(url.searchParams.get('history') ?? 20) || 0));
-    const byDevice = new Map();
-    for (const f of fs.readdirSync(BACKUP_DIR).filter((f) => f.endsWith('.conf'))) {
-      const b = { file: f, ...backupDevice(f) };
-      if (!byDevice.has(b.device)) byDevice.set(b.device, []);
-      byDevice.get(b.device).push(b);
-    }
-    const run = (f) => {
-      try {
-        return auditFile(path.join(BACKUP_DIR, f.file));
-      } catch (err) {
-        return { error: err.message };
-      }
-    };
+    const run = (f) => auditOrError(f.file);
     const devices = [];
-    for (const [device, all] of byDevice) {
-      all.sort((a, b) => b.mtime - a.mtime);
+    for (const [device, all] of backupsByDevice()) {
       const start = only ? all.findIndex((f) => f.file === only) : 0;
       if (start === -1) continue;
       const files = all.slice(start, start + history + 1);
@@ -204,6 +213,43 @@ async function handle(req, res) {
     if (only && !devices.length) return send(res, 404, { error: 'Not found' });
     devices.sort((a, b) => String(a.device.hostname).localeCompare(String(b.device.hostname)));
     return send(res, 200, { checks: CHECKS, devices }, req);
+  }
+
+  // Compliance with a framework (?framework=cis|pci) of the newest backup of each device,
+  // or of one ?file=.
+  if (m === 'GET' && p === '/api/compliance') {
+    const fwId = url.searchParams.get('framework') || 'cis';
+    if (!compliance.FRAMEWORKS[fwId]) return send(res, 400, { error: `Unknown framework ${fwId}` });
+    const only = url.searchParams.get('file') ? path.basename(url.searchParams.get('file')) : null;
+    const devices = [];
+    for (const [device, all] of backupsByDevice()) {
+      const b = only ? all.find((f) => f.file === only) : all[0];
+      if (!b) continue;
+      const r = auditOrError(b.file);
+      const base = { file: b.file, takenAt: b.mtime, device: { ...(r.device || {}), hostname: device } };
+      devices.push(r.error ? { ...base, error: r.error } : { ...base, ...compliance.evaluate(fwId, r) });
+    }
+    if (only && !devices.length) return send(res, 404, { error: 'Not found' });
+    devices.sort((a, b) => String(a.device.hostname).localeCompare(String(b.device.hostname)));
+    const { sections, ...meta } = compliance.FRAMEWORKS[fwId];
+    return send(res, 200, { frameworks: compliance.frameworks(), framework: meta, checks: CHECKS, devices, generatedAt: new Date() }, req);
+  }
+
+  // Risky firewall policies of the newest backup of each device and how to fix each one.
+  if (m === 'GET' && p === '/api/mitigation') {
+    const devices = [];
+    for (const [device, all] of backupsByDevice()) {
+      const b = all[0];
+      const base = { file: b.file, takenAt: b.mtime, hostname: device };
+      try {
+        const full = path.join(BACKUP_DIR, b.file);
+        devices.push({ ...base, ...mitigation.analyze(fs.readFileSync(full, 'utf8'), auditFile(full)) });
+      } catch (err) {
+        devices.push({ ...base, error: err.message });
+      }
+    }
+    devices.sort((a, b) => String(a.hostname).localeCompare(String(b.hostname)));
+    return send(res, 200, { devices }, req);
   }
 
   if (p.startsWith('/api/inventory/') && !inventory) {

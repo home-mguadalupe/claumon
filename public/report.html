@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compliance report</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23c8102e' d='M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='m8.5 12 2.5 2.5 4.5-5'/%3E%3C/svg%3E">
+<style>
+  /* A report is printed on paper, so it stays light on screen too. */
+  :root {
+    color-scheme: light;
+    --fg:#18212b; --muted:#56606b; --line:#dfe4ea; --soft:#f4f6f9; --accent:#c8102e;
+    --ok:#17733a; --ok-soft:#e4f3e9; --warn:#9a6700; --warn-soft:#fbf1dc; --err:#b42318; --err-soft:#fdecea; --info:#1d4ed8; --info-soft:#e8effd;
+    --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#e9edf1; color:var(--fg); font:13px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .bar { position:sticky; top:0; z-index:1; display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:10px 16px; background:#131920; color:#f5f7fa; }
+  .bar button { height:34px; padding:0 14px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  .bar button:focus-visible { outline:2px solid #6aa8ff; outline-offset:2px; }
+  .bar span { color:#b6c0ca; font-size:12.5px; }
+  .page { max-width:960px; margin:20px auto; padding:40px 44px; background:#fff; box-shadow:0 1px 3px rgb(16 24 40 / .12); }
+  h1 { margin:0 0 4px; font-size:24px; letter-spacing:-.01em; }
+  h2 { margin:28px 0 10px; font-size:17px; }
+  h3 { margin:22px 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  .sub { color:var(--muted); }
+  .meta { display:grid; grid-template-columns:max-content 1fr; gap:4px 18px; margin:18px 0; }
+  .meta dt { color:var(--muted); } .meta dd { margin:0; }
+  .note { padding:10px 12px; border-left:3px solid var(--warn); background:var(--warn-soft); font-size:12.5px; margin:14px 0; }
+  table { width:100%; border-collapse:collapse; margin:6px 0 10px; }
+  th, td { text-align:left; vertical-align:top; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); font-weight:600; background:var(--soft); }
+  td.n, th.n { text-align:center; font-variant-numeric:tabular-nums; }
+  .mono { font-family:var(--mono); font-size:12px; }
+  .st { display:inline-block; min-width:56px; padding:0 7px; border-radius:999px; font-size:11px; font-weight:600; line-height:19px; text-align:center; white-space:nowrap; }
+  .st-fail { background:var(--err-soft); color:var(--err); }
+  .st-review { background:var(--warn-soft); color:var(--warn); }
+  .st-pass { background:var(--ok-soft); color:var(--ok); }
+  .st-manual { background:var(--info-soft); color:var(--info); }
+  .st-na { background:var(--soft); color:var(--muted); }
+  .sev { font-size:11px; font-weight:600; text-transform:capitalize; }
+  .sev-critical, .sev-high { color:var(--err); } .sev-medium { color:var(--warn); } .sev-low { color:var(--info); } .sev-info { color:var(--muted); }
+  .ev { margin:0; padding-left:16px; font-size:12px; }
+  .ev li { margin:1px 0; }
+  .score { font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .kpis { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-end; margin:10px 0 4px; }
+  .kpis div { display:grid; } .kpis span { color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; }
+  .box { display:inline-block; width:12px; height:12px; border:1.5px solid var(--fg); border-radius:2px; vertical-align:-2px; }
+  .sign { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; margin-top:28px; }
+  .sign div { border-top:1px solid var(--fg); padding-top:4px; color:var(--muted); font-size:11.5px; }
+  .device { break-before:page; }
+  tr, li, .fix { break-inside:avoid; }
+  .fix { padding:8px 0; border-bottom:1px solid var(--line); }
+  .fix code { font-family:var(--mono); font-size:11.5px; background:var(--soft); padding:1px 4px; border-radius:3px; }
+  .err { color:var(--err); }
+  footer { margin-top:30px; color:var(--muted); font-size:11px; }
+  @media (max-width: 700px) {
+    .page { margin:0; padding:20px 16px; box-shadow:none; }
+    .sign { grid-template-columns:1fr; }
+    .wrap { overflow-x:auto; }
+  }
+  @page { size:A4; margin:16mm 14mm; }
+  @media print {
+    body { background:#fff; font-size:11.5px; }
+    .bar { display:none; }
+    .page { margin:0; padding:0; max-width:none; box-shadow:none; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+<div class="bar"><span id="barInfo">Loading…</span><button type="button" id="printBtn">Print / Save as PDF</button></div>
+<main class="page" id="report"><p class="sub">Loading report…</p></main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const fmt = (d) => new Date(d).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+const LABEL = { fail: 'Fail', review: 'Review', pass: 'Pass', manual: 'Manual', na: 'N/A' };
+const STS = ['fail', 'review', 'pass', 'manual', 'na'];
+const st = (s) => `<span class="st st-${esc(s)}">${LABEL[s]}</span>`;
+const fixHtml = (s) => esc(s).replace(/(config |set |edit )[^›]+/g, (m) => `<code>${m.trim()}</code>`);
+$('#printBtn').onclick = () => window.print();
+
+const q = new URLSearchParams(location.search);
+const params = new URLSearchParams({ framework: q.get('framework') || 'cis' });
+if (q.get('file')) params.set('file', q.get('file'));
+
+fetch(`/api/compliance?${params}`).then(async (res) => {
+  const r = await res.json();
+  if (!res.ok) throw new Error(r.error || res.statusText);
+  render(r);
+}).catch((err) => {
+  $('#report').innerHTML = `<p class="err">Could not build the report: ${esc(err.message)}</p>`;
+  $('#barInfo').textContent = 'Error';
+});
+
+function render(r) {
+  const fw = r.framework;
+  const devs = r.devices;
+  const one = devs.length === 1 ? devs[0] : null;
+  const scope = one ? one.device.hostname || one.file : `${devs.length} firewalls`;
+  document.title = `${fw.name} report · ${scope}`;
+  $('#barInfo').textContent = `${fw.name} ${fw.version} · ${scope}`;
+
+  const evidence = (c) => {
+    const items = c.checks.flatMap((k) => k.findings.map((f) => `<li>${esc(r.checks[k.id].title)}: ${[f.vdom && `VDOM ${esc(f.vdom)}`, f.object && `<span class="mono">${esc(f.object)}</span>`, f.detail && esc(f.detail)].filter(Boolean).join(' · ')}</li>`));
+    const passed = c.checks.filter((k) => k.status === 'pass').map((k) => `<li>✔ ${esc(r.checks[k.id].title)}: no finding</li>`);
+    const list = [...items.slice(0, 12), ...(items.length > 12 ? [`<li>… ${items.length - 12} more</li>`] : []), ...(c.status === 'fail' ? [] : passed)];
+    return (list.length ? `<ul class="ev">${list.join('')}</ul>` : '') + (c.note && c.status !== 'fail' ? `<div class="sub" style="font-size:12px">${c.status === 'manual' ? 'To check' : 'Also check'}: ${esc(c.note)}</div>` : '');
+  };
+
+  const summary = devs.length > 1 ? `<h2>Summary</h2><div class="wrap"><table>
+    <thead><tr><th>Firewall</th><th>Model / FortiOS</th><th class="n">Score</th>${STS.map((s) => `<th class="n">${LABEL[s]}</th>`).join('')}<th>Backup</th></tr></thead>
+    <tbody>${devs.map((d) => `<tr><td><b>${esc(d.device.hostname || d.file)}</b></td><td>${esc([d.device.model, d.device.version].filter(Boolean).join(' · '))}</td>${
+      d.error ? `<td colspan="6" class="err">Could not read: ${esc(d.error)}</td>` : `<td class="n"><b>${d.score ?? '–'}${d.score != null ? '%' : ''}</b></td>${STS.map((s) => `<td class="n">${d.counts[s]}</td>`).join('')}`
+    }<td>${fmt(d.takenAt)}</td></tr>`).join('')}</tbody></table></div>` : '';
+
+  const device = (d) => {
+    if (d.error) return `<section class="device"><h2>${esc(d.device.hostname || d.file)}</h2><p class="err">Backup could not be read: ${esc(d.error)}</p></section>`;
+    const controls = d.sections.map((s) => `<h3>${esc(s.id)} ${esc(s.title)}</h3><table>
+      <thead><tr><th style="width:62px">Control</th><th style="width:34%">Requirement</th><th style="width:72px">Status</th><th>Evidence</th></tr></thead>
+      <tbody>${s.controls.map((c) => `<tr><td class="mono">${esc(c.id)}</td><td>${esc(c.title)}${c.severity && c.status === 'fail' ? `<br><span class="sev sev-${esc(c.severity)}">${esc(c.severity)}</span>` : ''}</td><td>${st(c.status)}</td><td>${evidence(c)}</td></tr>`).join('')}</tbody></table>`).join('');
+    const todo = d.sections.flatMap((s) => s.controls.filter((c) => c.status === 'manual' || c.status === 'review'));
+    const SEVS = ['critical', 'high', 'medium', 'low', 'info'];
+    const failedChecks = [...new Set(d.sections.flatMap((s) => s.controls.flatMap((c) => c.checks.filter((k) => k.status === 'fail').map((k) => k.id))))]
+      .sort((a, b) => SEVS.indexOf(r.checks[a].severity) - SEVS.indexOf(r.checks[b].severity));
+    return `<section class="device">
+      <h2 style="margin-top:0">${esc(d.device.hostname || d.file)}</h2>
+      <dl class="meta">
+        <dt>Model</dt><dd>${esc(d.device.model || '–')}</dd>
+        <dt>FortiOS</dt><dd>${esc(d.device.version || '–')}</dd>
+        <dt>VDOMs</dt><dd>${esc((d.device.vdoms || []).join(', ') || '–')}</dd>
+        <dt>Backup</dt><dd>${fmt(d.takenAt)} · <span class="mono">${esc(d.file)}</span></dd>
+      </dl>
+      <div class="kpis"><div><span>Score</span><b class="score">${d.score ?? '–'}${d.score != null ? '%' : ''}</b></div>${STS.map((s) => `<div><span>${LABEL[s]}</span><b>${d.counts[s]}</b></div>`).join('')}</div>
+      <p class="sub" style="font-size:12px">Score: controls without a failed check out of those the automated checks could judge (fail + review + pass). Manual and not-applicable controls are not counted.</p>
+      ${controls}
+      ${failedChecks.length ? `<h3>Remediation</h3>${failedChecks.map((id) => { const c = r.checks[id]; return `<div class="fix"><b>${esc(c.title)}</b> <span class="sev sev-${esc(c.severity)}">${esc(c.severity)}</span><div>${esc(c.why)}</div><div><b>Fix:</b> ${fixHtml(c.fix)}</div></div>`; }).join('')}` : ''}
+      ${todo.length ? `<h3>Reviewer checklist</h3><p class="sub" style="font-size:12px">These controls can't be decided from the configuration alone. Confirm each one and record the evidence.</p><table>
+        <thead><tr><th style="width:28px"></th><th style="width:62px">Control</th><th>What to confirm</th><th style="width:30%">Evidence / notes</th></tr></thead>
+        <tbody>${todo.map((c) => `<tr><td><span class="box"></span></td><td class="mono">${esc(c.id)}</td><td><b>${esc(c.title)}</b><div class="sub">${esc(c.note || '')}</div></td><td></td></tr>`).join('')}</tbody></table>
+        <div class="sign"><div>Reviewer</div><div>Date</div><div>Signature</div></div>` : ''}
+    </section>`;
+  };
+
+  $('#report').innerHTML = `
+    <h1>${esc(fw.name)} compliance report</h1>
+    <div class="sub">${esc(fw.name)} ${esc(fw.version)} · ${esc(scope)}</div>
+    <dl class="meta">
+      <dt>Generated</dt><dd>${fmt(r.generatedAt)}</dd>
+      <dt>Scope</dt><dd>${devs.map((d) => esc(d.device.hostname || d.file)).join(', ') || 'No firewalls'}</dd>
+      <dt>Source</dt><dd>${one ? 'The selected configuration backup' : 'The newest configuration backup of each firewall'}. Nothing is read from the devices.</dd>
+    </dl>
+    <div class="note">${esc(fw.note)} Settings that are not in a backup are treated as FortiOS defaults.</div>
+    <h3>Status legend</h3>
+    <table><tbody>
+      <tr><td>${st('fail')}</td><td>At least one automated check failed.</td></tr>
+      <tr><td>${st('review')}</td><td>The automated checks passed, but part of the requirement needs a person to confirm it.</td></tr>
+      <tr><td>${st('pass')}</td><td>The automated checks fully cover the control and passed.</td></tr>
+      <tr><td>${st('manual')}</td><td>Can't be judged from a configuration backup: see the reviewer checklist.</td></tr>
+      <tr><td>${st('na')}</td><td>Not applicable: the configuration has nothing the control applies to (e.g. no HA, no SSL-VPN).</td></tr>
+    </tbody></table>
+    ${summary}
+    ${devs.map(device).join('') || '<p>No backups yet.</p>'}
+    <footer>Generated by FortiGate Backup on ${fmt(r.generatedAt)}.</footer>`;
+}
+</script>
+</body>
+</html>
