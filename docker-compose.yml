@@ -14,7 +14,7 @@ services:
       AUTO_ROUTES_HOURS: ${AUTO_ROUTES_HOURS:-}
       ROUTES_KEEP_DAYS: ${ROUTES_KEEP_DAYS:-}
     ports:
-      - "127.0.0.1:${PORT:-3000}:3000"
+      - "127.0.0.1:${PORT:-5555}:5555"
     volumes:
       - appdata:/app/data
       - backups:/app/backups

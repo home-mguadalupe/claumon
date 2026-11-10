@@ -22,7 +22,7 @@ npm install
 npm start
 ```
 
-Open <http://127.0.0.1:3000>, add a firewall (host, HTTPS port, API key), click
+Open <http://127.0.0.1:5555>, add a firewall (host, HTTPS port, API key), click
 **Test**, then **Backup**.
 
 ### With Docker
@@ -33,7 +33,7 @@ Runs the app and the inventory database together; only Docker is needed.
 docker compose up -d --build
 ```
 
-Open <http://127.0.0.1:3000>. The port is published on `127.0.0.1` only. Use
+Open <http://127.0.0.1:5555>. The port is published on `127.0.0.1` only. Use
 `PORT=8080 docker compose up -d` for another host port. Set `PGPASSWORD`,
 `ENABLE_PUSH` or `FGT_MASTER_KEY` in the shell or in a `.env` file next to
 `docker-compose.yml` (URL-safe characters only in `PGPASSWORD`).
@@ -78,7 +78,7 @@ existing databases pick up new tables automatically.
 
 | Variable       | Default     | Description                                                               |
 |----------------|-------------|---------------------------------------------------------------------------|
-| `PORT`         | `3000`      | HTTP port                                                                 |
+| `PORT`         | `5555`      | HTTP port                                                                 |
 | `BIND`         | `127.0.0.1` | Listen address. Use `0.0.0.0` to expose it on the network (see Security). |
 | `DATABASE_URL` | *(unset)*   | PostgreSQL connection string; enables the inventory features              |
 | `PGPASSWORD`   | `fortiinv`  | Password for the Postgres container in `docker-compose.yml`               |

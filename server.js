@@ -17,7 +17,7 @@ const inventory = process.env.DATABASE_URL ? require('./lib/inventory') : null;
 const iplookup = process.env.DATABASE_URL ? require('./lib/iplookup') : null;
 const routes = process.env.DATABASE_URL ? require('./lib/routes') : null;
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 5555;
 const BIND = process.env.BIND || '127.0.0.1';
 // Writing to firewalls is opt-in: the app has no authentication of its own.
 const PUSH_ENABLED = process.env.ENABLE_PUSH === '1';
