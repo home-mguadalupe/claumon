@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-11-14 — Overview
+
+### New: Overview tab
+The page the app now opens on. It answers "is everything OK?" without visiting four tabs.
+
+- Needs attention: firewalls never backed up or not backed up for a week, backups that
+  can't be read, failed automatic jobs, critical and high findings, and findings that
+  appeared in the last 7 days.
+- One row per firewall: last backup, critical / high / medium findings, changes in the
+  last 7 days, compliance score and risky policies. Every number links to the tab that
+  explains it, already filtered to that firewall.
+- The six most recent security-relevant changes across all firewalls.
+- No new API: it combines `/api/firewalls`, `/api/auto`, `/api/audit`, `/api/compliance`
+  and `/api/mitigation`, and re-reads them on every visit.
+
+## 2026-11-14 — Interface redesign
+
+Same features and layout, new look. No API or data changes.
+
+- Neutral palette with ink-coloured primary buttons. Red, amber and green now only mean
+  fail, review and pass; before, the red accent on buttons and tabs competed with
+  critical findings.
+- Flat pages divided by hairlines instead of shadowed cards, so tables get the full width.
+- One style for every state label (severity, control status, fix impact, up/down): a
+  coloured dot and a word. Summary tables show plain coloured counts.
+- Findings, controls, changes and search hits are grouped lists with a chevron that shows
+  whether a row is open.
+- Tabs are grouped by job (devices, look-up, assessment, push) and the header follows the
+  light or dark theme.
+- The "pushing is disabled" notice is a neutral note, not an error.
+- Larger controls on phones.
+
 ## 2026-11-08 — Policy mitigation
 
 ### New: Mitigation tab

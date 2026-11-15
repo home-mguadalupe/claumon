@@ -22,8 +22,8 @@ npm install
 npm start
 ```
 
-Open <http://127.0.0.1:5555>, add a firewall (host, HTTPS port, API key), click
-**Test**, then **Backup**.
+Open <http://127.0.0.1:5555>, go to **Firewalls**, add a firewall (host, HTTPS port,
+API key), click **Test**, then **Backup**.
 
 ### With Docker
 
@@ -90,6 +90,15 @@ existing databases pick up new tables automatically.
 | `ROUTES_KEEP_DAYS`  | `30`   | Hourly routing tables older than this are deleted (the one each inventory snapshot shows is kept) |
 
 ## Using the UI
+
+### Overview
+
+The page the app opens on. **Needs attention** lists what is wrong right now: firewalls
+never backed up or not backed up for a week, backups that can't be read, failed automatic
+jobs, critical and high findings, and findings that appeared in the last 7 days. Below it
+is one row per firewall (last backup, findings, changes in the last 7 days, compliance
+score, risky policies) and the latest security-relevant changes. Every number links to
+the tab that explains it, filtered to that firewall. It is re-read on every visit.
 
 ### Firewalls
 Add, test, back up and delete firewalls. You only enter the IP/hostname, HTTPS port
