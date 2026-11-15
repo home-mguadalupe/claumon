@@ -88,6 +88,8 @@ existing databases pick up new tables automatically.
 | `AUTO_BACKUP_HOURS` | `24`   | Back up every firewall automatically this often (`0` = off)               |
 | `AUTO_ROUTES_HOURS` | `1`    | Refresh every firewall's routing table this often (`0` = off; needs `DATABASE_URL`) |
 | `ROUTES_KEEP_DAYS`  | `30`   | Hourly routing tables older than this are deleted (the one each inventory snapshot shows is kept) |
+| `CVE_REFRESH_HOURS` | `24`   | The CVE list is downloaded from NVD again when older than this (`0` = only with **Update CVE list**) |
+| `NVD_API_KEY`       | *(unset)* | Optional NVD API key; without one NVD allows 5 requests per 30 seconds, which is enough |
 
 ## Using the UI
 
@@ -95,7 +97,8 @@ existing databases pick up new tables automatically.
 
 The page the app opens on. **Needs attention** lists what is wrong right now: firewalls
 never backed up or not backed up for a week, backups that can't be read, failed automatic
-jobs, critical and high findings, and findings that appeared in the last 7 days. Below it
+jobs, critical and high findings, CVEs for the running FortiOS version, and findings that
+appeared in the last 7 days. Below it
 is one row per firewall (last backup, findings, changes in the last 7 days, compliance
 score, risky policies) and the latest security-relevant changes. Every number links to
 the tab that explains it, filtered to that firewall. It is re-read on every visit.
@@ -199,6 +202,40 @@ its findings plus the checks it passed and those that are not applicable (e.g. H
 standalone unit). Filter by severity, category or text; the view state is kept in the URL.
 **Re-check** reads new backups.
 
+### CVEs
+Lists the known vulnerabilities of the FortiOS version each firewall runs, and checks its
+newest backup to see whether the affected feature is in use.
+
+- **Version**: read from the header of the newest backup (`#config-version=…`), so nothing
+  is asked of the devices.
+- **CVE list**: every CVE that names FortiOS, downloaded from the public
+  [NVD API](https://nvd.nist.gov/developers/vulnerabilities) and kept in
+  `data/cve-cache.json`. It is refreshed when older than `CVE_REFRESH_HOURS` (default 24)
+  or with **Update CVE list**. Only the product name is sent to NVD: no version, hostname
+  or configuration. If NVD can't be reached, the last downloaded list is used and the
+  error is shown.
+- **Which CVEs apply**: those whose affected versions include the firewall's version. The
+  vendor's ranges in the CVE record are used first, because NVD takes weeks to analyse new
+  CVEs; NVD's own ranges or the advisory text are the fallback.
+- **Result** per CVE and firewall:
+
+  | Result | Meaning |
+  |--------|---------|
+  | Vulnerable | the version is affected and a feature the advisory names is in use; the evidence from the backup is shown |
+  | Check manually | the version is affected, but the advisory names no feature that can be looked up in a backup |
+  | Feature not in use | the version is affected, but the feature (HA, BGP, OSPF, SSL-VPN, captive portal…) is not configured |
+
+  The feature is worked out from the advisory text (about 30 features: SSL-VPN, admin GUI /
+  REST API, CLI, SSH, FGFM, HA / FGSP, OSPF, BGP, IPsec, explicit proxy, ZTNA, proxy-mode
+  inspection, captive portal, web filter, wireless, FortiLink, Security Fabric, SNMP, SAML,
+  RADIUS, TACACS+, LDAP, FSSO, DHCP, DNS, IPS, antivirus, SD-WAN, FortiExtender, VIPs,
+  automation). It is a heuristic: **Feature not in use** lowers the priority, it is not a
+  fix. Only the upgrade in the **Fix** column removes the vulnerability.
+- Each CVE shows its CVSS score (the higher of the vendor's and NVD's), what an attacker
+  needs (network / local access, login or not), whether it is in the CISA Known Exploited
+  Vulnerabilities catalogue, and links to NVD and the Fortinet advisory.
+- The tab's counter and the Overview show critical / high CVEs the backup does not rule out.
+
 ### Compliance
 Maps the security checks to the controls of a compliance framework and shows, per firewall,
 which controls pass, fail or need a person to confirm them. Like the Security tab, it works
@@ -280,6 +317,7 @@ public/index.html    the whole web UI
 lib/fortigate.js     FortiGate REST API client (status, config backup, routing table)
 lib/routes.js        routing tables: pull from firewalls, store, look up
 lib/audit.js         security checks on a backup (Security tab)
+lib/cve.js           CVE list from NVD, version matching, feature-in-use check (CVEs tab)
 lib/compliance.js    CIS / PCI DSS control mappings and scoring (Compliance tab)
 public/report.html   printable compliance report (/report)
 lib/mitigation.js    fix steps and priority of each risky policy (Mitigation tab)
@@ -296,6 +334,7 @@ db/schema.sql        database schema
 data/master.key      master key for API key encryption (generated at first start)
 data/firewalls.json  saved firewalls when running without a database
 data/push-log.jsonl  log of every config push
+data/cve-cache.json  CVE list downloaded from NVD
 backups/             backup files (*.conf) + device metadata (*.meta.json)
 ```
 
@@ -316,6 +355,7 @@ backups/             backup files (*.conf) + device metadata (*.meta.json)
 | GET    | `/api/firewalls/:id/vdoms`                   | VDOM names on the device             |
 | GET    | `/api/firewalls/:id/objects?vdom=`           | Object names on the device (for autocompletion) |
 | GET    | `/api/audit?file=&history=`                  | Security audit of the newest backup per device (or one file) and the changes between its last `history` (default 20) backups |
+| GET    | `/api/cves?refresh=1&cached=1`               | CVEs of the FortiOS version in the newest backup per device, each with a result from the config (`refresh=1` downloads the CVE list again, `cached=1` never downloads) |
 | GET    | `/api/compliance?framework=&file=`           | Compliance with `cis` (default) or `pci` of the newest backup per device (or one file): score, counts and every control's status with its evidence |
 | GET    | `/report?framework=&file=`                   | Printable compliance report (HTML, save as PDF from the browser) |
 | GET    | `/api/mitigation`                            | Risky policies of the newest backup per device and how to fix each one |
@@ -361,3 +401,6 @@ Sections: `interfaces`, `policies`, `addresses`, `addrgrps`, `services`, `servic
 - Backups contain the full configuration. `data/` and `backups/` are set to mode
   `0700`, files to `0600`, and both are git-ignored. Treat them as secrets.
 - Leave **Verify TLS cert** on wherever the firewall has a trusted certificate.
+- The **CVEs** tab is the only feature that contacts the internet: it downloads the public
+  FortiOS CVE list from `services.nvd.nist.gov`. The request carries the product name only.
+  On a server without internet access the tab reports that the list could not be downloaded.

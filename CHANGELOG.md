@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-11-14 — CVEs
+
+### New: CVEs tab
+Lists the known vulnerabilities of the FortiOS version each firewall runs and checks the
+newest backup to see whether the affected feature is in use.
+
+- The version comes from the backup header; the CVE list from the public NVD API, cached in
+  `data/cve-cache.json` and refreshed daily (`CVE_REFRESH_HOURS`) or on demand. Only the
+  product name is sent to NVD.
+- CVEs that NVD has not analysed yet are included: the vendor's affected version ranges in
+  the CVE record are used first.
+- Each CVE gets a result per firewall: **Vulnerable** (feature in use, with the evidence from
+  the backup), **Check manually** (the advisory names no feature a backup can show) or
+  **Feature not in use**. The feature is read from the advisory text, so the last one lowers
+  the priority but is not a fix.
+- CVSS score, what an attacker needs, CISA "known exploited" flag, the release that fixes
+  it, and links to NVD and the Fortinet advisory.
+- Overview: critical / high CVEs that the backup does not rule out appear under Needs attention.
+- New API: `GET /api/cves`. New settings: `CVE_REFRESH_HOURS`, `NVD_API_KEY` (optional).
+
 ## 2026-11-14 — Overview
 
 ### New: Overview tab

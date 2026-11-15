@@ -13,6 +13,8 @@ services:
       AUTO_BACKUP_HOURS: ${AUTO_BACKUP_HOURS:-}
       AUTO_ROUTES_HOURS: ${AUTO_ROUTES_HOURS:-}
       ROUTES_KEEP_DAYS: ${ROUTES_KEEP_DAYS:-}
+      CVE_REFRESH_HOURS: ${CVE_REFRESH_HOURS:-}
+      NVD_API_KEY: ${NVD_API_KEY:-}
     ports:
       - "127.0.0.1:${PORT:-5555}:5555"
     volumes:

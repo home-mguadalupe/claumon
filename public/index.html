@@ -475,6 +475,12 @@
   .compctl .chk .why { padding:0; }
   .compctl .chk code { font-family:var(--mono); font-size:12px; background:var(--surface-2); padding:1px 5px; border-radius:4px; }
   .compctl .chk table { margin-top:4px; }
+  /* ---------- CVEs ---------- */
+  .cvecard summary b { flex:none; min-width:0; font-family:var(--mono); font-size:13px; }
+  .cvecard summary .what { flex:1; min-width:220px; color:var(--muted); font-size:13px; }
+  .cvecard .why a { color:inherit; }
+  .cvecard td { vertical-align:top; }
+  .cvecard td ul { margin:0; padding-left:16px; }
   .mitcols { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px 20px; margin-top:6px; }
   .mitcols > div { min-width:0; }
   .mitcols h4 { margin:0 0 4px; font-size:12.5px; }
@@ -498,6 +504,7 @@
     <a href="#inventory" data-view="inventory" class="grp">Inventory<span class="count" id="invCount" hidden></span></a>
     <a href="#iplookup" data-view="iplookup">IP lookup</a>
     <a href="#security" data-view="security" class="grp">Security<span class="count" id="secCount" hidden></span></a>
+    <a href="#cves" data-view="cves">CVEs<span class="count" id="cveCount" hidden></span></a>
     <a href="#compliance" data-view="compliance">Compliance</a>
     <a href="#mitigation" data-view="mitigation">Mitigation<span class="count" id="mitCount" hidden></span></a>
     <a href="#push" data-view="push" class="grp">Push</a>
@@ -760,6 +767,35 @@
   </section>
 </div>
 
+<div class="view" data-view="cves" hidden>
+  <section aria-labelledby="cveTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="cveTitle">Known vulnerabilities</h2>
+        <div class="sub">CVEs that affect the FortiOS version each firewall runs, checked against its newest backup to see whether the affected feature is in use.</div>
+      </div>
+      <div class="btns"><button type="button" id="cveReload" title="Download the CVE list from NVD again">Update CVE list</button></div>
+    </div>
+    <div id="cveMsg" class="msg empty" role="status" aria-live="polite"></div>
+    <div class="wrap"><table class="secsum" id="cveSum" hidden>
+      <thead><tr><th scope="col">Firewall</th><th scope="col" class="n" title="The version is affected and the feature is in use in the backup">Vulnerable</th><th scope="col" class="n" title="The version is affected; the advisory names no feature that can be looked up in the backup">Check manually</th><th scope="col" class="n" title="The version is affected, but the feature the advisory names is not configured">Feature not in use</th><th scope="col" class="n" title="Critical or high CVEs that the backup does not rule out">Critical / high</th><th scope="col" class="n" title="In the CISA Known Exploited Vulnerabilities catalogue and not ruled out by the backup">Exploited</th><th scope="col">Backup</th></tr></thead>
+      <tbody id="cveSumBody"></tbody>
+    </table></div>
+  </section>
+  <section aria-labelledby="cveListTitle" id="cveListSec" hidden>
+    <h2 id="cveListTitle">CVEs</h2>
+    <div class="toolbar">
+      <label>Firewall<select id="cveFw"><option value="">All firewalls</option></select></label>
+      <label>Result<select id="cveVd"><option value="">All</option><option value="exposed">Vulnerable</option><option value="review">Check manually</option><option value="not-exposed">Feature not in use</option></select></label>
+      <label>Minimum severity<select id="cveSev"><option value="">All</option><option>critical</option><option>high</option><option>medium</option><option>low</option></select></label>
+      <label class="grow searchbox">Search<input type="search" id="cveQ" placeholder="CVE number, feature, text…" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <div id="cveListMsg" class="msg empty" role="status" aria-live="polite"></div>
+    <div class="secfind compctl" id="cveList"></div>
+    <p class="sub muted" id="cveNote" hidden>How to read this: a CVE is listed when the vendor's affected versions include the firewall's FortiOS version. The result is then worked out from the advisory text and the backup, so treat "Feature not in use" as a reason to lower the priority, not as a fix: only the upgrade removes the vulnerability.</p>
+  </section>
+</div>
+
 <div class="view" data-view="compliance" hidden>
   <section aria-labelledby="compTitle">
     <div class="page-head">
@@ -933,7 +969,7 @@ syncThemeBtn();
 // ---------- routing ----------
 // The hash holds the view plus its state, e.g. #inventory?dev=2&sec=vips&q=10.1
 // so links can be shared and the back button works.
-const VIEWS = ['overview', 'firewalls', 'backups', 'inventory', 'iplookup', 'security', 'compliance', 'mitigation', 'push'];
+const VIEWS = ['overview', 'firewalls', 'backups', 'inventory', 'iplookup', 'security', 'cves', 'compliance', 'mitigation', 'push'];
 const route = () => {
   const [view, qs] = location.hash.slice(1).split('?');
   return { view: VIEWS.includes(view) ? view : VIEWS[0], params: new URLSearchParams(qs) };
@@ -958,13 +994,14 @@ function showView() {
   document.title = `${view[0].toUpperCase() + view.slice(1)} · FortiGate Backup`;
   // Inventory tables and search results need more room.
   $('main').classList.toggle('wide', !['overview', 'firewalls', 'push'].includes(view));
-  document.title = view === 'iplookup' ? 'IP lookup · FortiGate Backup' : document.title;
+  document.title = view === 'iplookup' ? 'IP lookup · FortiGate Backup' : view === 'cves' ? 'CVEs · FortiGate Backup' : document.title;
   if (view === 'overview') applyOverview();
   if (view === 'inventory') applyInvState(params);
   if (view === 'backups') applySearchState(params);
   if (view === 'push') loadPushHistory();
   if (view === 'iplookup') applyIpState(params);
   if (view === 'security') applySecState(params);
+  if (view === 'cves') applyCveState(params);
   if (view === 'compliance') applyCompState(params);
   if (view === 'mitigation') applyMitState(params);
 }
@@ -974,7 +1011,7 @@ window.addEventListener('hashchange', showView);
 // "/" focuses the search box of the current view, Esc clears it.
 document.addEventListener('keydown', (e) => {
   if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
-    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ', security: '#secQ', compliance: '#compQ', mitigation: '#mitQ' }[route().view];
+    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ', security: '#secQ', cves: '#cveQ', compliance: '#compQ', mitigation: '#mitQ' }[route().view];
     if (box) { e.preventDefault(); $(box).focus(); $(box).select(); }
   }
   if (e.key === 'Escape' && e.target.type === 'search' && e.target.value) {
@@ -2876,6 +2913,143 @@ function renderSecChanges(st, minSev, q) {
 $('#secQ').addEventListener('input', debounce(() => { syncSecHash(); renderSecurity(); }, 150));
 $('#secReload').onclick = (e) => busy(e.target, async () => { try { await loadAudit(true); fillSecFilters(); renderSecurity(); } catch {} });
 
+// ---------- CVEs ----------
+// CVEs of each firewall's FortiOS version, with a verdict from its newest backup.
+const CVE_VERDICTS = ['exposed', 'review', 'not-exposed'];
+const CVE_LABEL = { exposed: 'Vulnerable', review: 'Check manually', 'not-exposed': 'Feature not in use' };
+const CVE_CLASS = { exposed: 'fail', review: 'review', 'not-exposed': 'pass' };
+const cvePill = (v) => `<span class="cst cst-${CVE_CLASS[v]}">${CVE_LABEL[v]}</span>`;
+let cveData = null;
+let cveLoading = null;
+
+function setCveCount(r) {
+  const n = r.devices.reduce((t, d) => t + (d.counts ? d.counts.urgent : 0), 0);
+  $('#cveCount').hidden = !n;
+  $('#cveCount').textContent = n;
+  $('#cveCount').title = `${n} critical / high CVEs not ruled out by the backups`;
+}
+
+function loadCves(refresh) {
+  if (cveData && !refresh) return Promise.resolve(cveData);
+  if (cveLoading) return cveLoading;
+  $('#cveMsg').className = 'msg empty';
+  $('#cveMsg').textContent = cveData || refresh ? 'Downloading the CVE list from NVD…' : 'Checking versions (the first time, the CVE list is downloaded from NVD: about 20 seconds)…';
+  cveLoading = api('GET', `/api/cves${refresh ? '?refresh=1' : ''}`).then((r) => {
+    cveData = r;
+    setCveCount(r);
+    return r;
+  }).catch((err) => {
+    setMsg($('#cveMsg'), false, esc(err.message));
+    throw err;
+  }).finally(() => { cveLoading = null; });
+  return cveLoading;
+}
+
+const cveState = () => ({ fw: $('#cveFw').value, vd: $('#cveVd').value, sev: $('#cveSev').value, q: $('#cveQ').value.trim() });
+const syncCveHash = () => setHash('cves', Object.entries(cveState()), false);
+
+async function applyCveState(p) {
+  try { await loadCves(); } catch { return; }
+  $('#cveFw').innerHTML = '<option value="">All firewalls</option>' + cveData.devices.map((d) => `<option value="${esc(d.file)}">${esc(d.hostname)}</option>`).join('');
+  const known = (sel, v) => ([...$(sel).options].some((o) => o.value === v) ? v : '');
+  $('#cveFw').value = known('#cveFw', p.get('fw') || '');
+  $('#cveVd').value = known('#cveVd', p.get('vd') || '');
+  $('#cveSev').value = known('#cveSev', p.get('sev') || '');
+  $('#cveQ').value = p.get('q') || '';
+  renderCves();
+}
+
+// "… may allow an attacker to X" -> "Allows an attacker to X": the part worth a one-line summary.
+const cveWhat = (d) => {
+  const m = d.match(/\b(?:may|could|can|might)\s+allows?\s+(.+)$/i) || d.match(/\ballows?\s+(.+)$/i);
+  const t = (m ? `Allows ${m[1]}` : d).replace(/<insert attack vector here>/i, '(attack vector not published)');
+  return t[0].toUpperCase() + t.slice(1);
+};
+
+function renderCves() {
+  const r = cveData;
+  const st = cveState();
+  const src = r.source;
+  const hide = (v) => { $('#cveSum').hidden = v; $('#cveListSec').hidden = v; };
+  if (!r.devices.length) {
+    hide(true);
+    $('#cveMsg').className = 'msg empty';
+    $('#cveMsg').textContent = 'No backups yet: back up a firewall first, the FortiOS version is read from the backup.';
+    return;
+  }
+  if (!src.fetchedAt) {
+    hide(true);
+    setMsg($('#cveMsg'), false, `The CVE list could not be downloaded${src.error ? `: ${esc(src.error)}` : ''}. The server needs internet access to services.nvd.nist.gov; press <b>Update CVE list</b> to try again.`);
+    return;
+  }
+  hide(false);
+  const total = r.devices.reduce((n, d) => n + (d.counts ? d.counts.total : 0), 0);
+  const info = `${plural(r.devices.length, 'firewall')} · ${plural(total, 'CVE')} for the versions in use · list of ${src.total} FortiOS CVEs from ${esc(src.name)}, downloaded ${ago(src.fetchedAt)}${src.refreshHours ? '' : ' (automatic updates off)'}.`;
+  if (src.error) setMsg($('#cveMsg'), false, `${info} The last update failed: ${esc(src.error)}`);
+  else { $('#cveMsg').className = 'msg empty'; $('#cveMsg').textContent = info + (r.devices.length > 1 ? ' Click a firewall to show only its CVEs.' : ''); }
+
+  const cell = (n, cls) => `<td class="n${n ? '' : ' zero'}">${n && cls ? `<span class="${cls}">${n}</span>` : n}</td>`;
+  $('#cveSumBody').innerHTML = r.devices.map((d) => {
+    const name = `<td class="fwname"><b>${esc(d.hostname)}</b><span class="mono">${esc(d.device ? [d.device.model, d.device.version && `FortiOS ${d.device.version}`, d.device.build && `build ${d.device.build}`].filter(Boolean).join(' · ') : '')}</span></td>`;
+    const when = `<td class="num" title="${esc(d.file)}">${ago(d.takenAt)}</td>`;
+    if (d.error || !d.counts) return `<tr>${name}<td colspan="5" class="err">${esc(d.error ? `Could not check: ${d.error}` : 'Not checked')}</td>${when}</tr>`;
+    const c = d.counts;
+    return `<tr data-file="${esc(d.file)}" aria-selected="${st.fw === d.file}" tabindex="0">${name}${cell(c.exposed, 'cst cst-fail')}${cell(c.review, 'cst cst-review')}${cell(c.notExposed)}${cell(c.urgent, 'sev sev-high')}${cell(c.exploited, 'sev sev-critical')}${when}</tr>`;
+  }).join('');
+  $('#cveSumBody').querySelectorAll('tr[data-file]').forEach((tr) => {
+    const pick = () => { $('#cveFw').value = $('#cveFw').value === tr.dataset.file ? '' : tr.dataset.file; syncCveHash(); renderCves(); };
+    tr.onclick = pick;
+    tr.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+  });
+
+  // One card per CVE, listing every firewall it applies to.
+  const minSev = st.sev ? SEVS.indexOf(st.sev) : SEVS.length;
+  const q = st.q.toLowerCase();
+  const groups = new Map();
+  for (const d of r.devices) {
+    if (!d.cves || (st.fw && d.file !== st.fw)) continue;
+    for (const c of d.cves) {
+      if (SEVS.indexOf(c.severity) > minSev || (st.vd && c.verdict !== st.vd)) continue;
+      if (q && ![c.id, c.description, d.hostname, c.fix, CVE_LABEL[c.verdict], ...c.cwe, ...c.components.flatMap((k) => [k.label, ...k.evidence])].some((v) => String(v || '').toLowerCase().includes(q))) continue;
+      if (!groups.has(c.id)) groups.set(c.id, { c, rows: [] });
+      groups.get(c.id).rows.push({ fw: d.hostname, version: d.device.version, c });
+    }
+  }
+  const worst = (g) => Math.min(...g.rows.map((x) => CVE_VERDICTS.indexOf(x.c.verdict)));
+  const cards = [...groups.values()].sort((a, b) => worst(a) - worst(b) || (b.c.kev ? 1 : 0) - (a.c.kev ? 1 : 0) || (b.c.cvss?.score || 0) - (a.c.cvss?.score || 0));
+  const multi = !st.fw && r.devices.length > 1;
+  $('#cveNote').hidden = !total;
+  $('#cveListMsg').textContent = cards.length ? '' : total ? 'No CVEs match the filters.' : 'No known CVEs for the FortiOS versions in these backups.';
+  $('#cveList').innerHTML = cards.map((g, i) => {
+    const c = g.c;
+    const v = CVE_VERDICTS[worst(g)];
+    const rows = g.rows.map((x) => {
+      const comps = x.c.components;
+      const what = comps.length
+        ? `<ul>${comps.map((k) => `<li><b>${esc(k.label)}</b>: ${k.inUse ? esc(k.evidence.join('; ')) : '<span class="muted">not configured in this backup</span>'}</li>`).join('')}</ul>`
+        : '<span class="muted">The advisory names no feature that can be looked up in a backup: read the advisory.</span>';
+      return `<tr>${multi ? `<td><b>${esc(x.fw)}</b><div class="ipvia">FortiOS ${esc(x.version)}</div></td>` : ''}<td>${cvePill(x.c.verdict)}</td><td>${what}</td><td>${esc(x.c.fix)}</td></tr>`;
+    }).join('');
+    const links = [`<a href="https://nvd.nist.gov/vuln/detail/${esc(c.id)}" target="_blank" rel="noopener noreferrer">NVD</a>`,
+      c.advisory && `<a href="${esc(c.advisory)}" target="_blank" rel="noopener noreferrer">Fortinet advisory ${esc(c.advisory.split('/').pop())}</a>`].filter(Boolean).join(' · ');
+    return `<details class="cvecard"${i < 3 && v !== 'not-exposed' ? ' open' : ''}>
+      <summary>${sevPill(c.severity)}<b>${esc(c.id)}</b><span class="what">${esc(cveWhat(c.description).slice(0, 140))}${cveWhat(c.description).length > 140 ? '…' : ''}</span>
+        ${c.kev ? `<span class="pill err" title="In the CISA Known Exploited Vulnerabilities catalogue since ${esc(c.kev.added)}">exploited</span>` : ''}${
+        c.components.map((k) => `<span class="tag">${esc(k.label)}</span>`).join('')}${cvePill(v)}</summary>
+      <div class="why">
+        <div>${esc(c.description.replace(/<insert attack vector here>/i, '(attack vector not published)'))}</div>
+        <div><b>Severity:</b> ${c.cvss ? `CVSS ${esc(c.cvss.score)} (${esc(c.cvss.by)} score) <span class="mono muted">${esc(c.cvss.vector)}</span>` : 'not scored yet'}${c.needs.length ? ` · ${esc(c.needs.join(', '))}` : ''}</div>
+        <div><b>Published:</b> ${esc(c.published.slice(0, 10))}${c.status === 'Awaiting Analysis' || c.status === 'Received' || c.status === 'Undergoing Analysis' ? ' · <span class="muted">not analysed by NVD yet: versions come from the vendor</span>' : ''}${c.kev ? ` · <b>exploited in the wild</b> (CISA KEV since ${esc(c.kev.added)})` : ''} · ${links}</div>
+      </div>
+      <div class="wrap"><table><thead><tr>${multi ? '<th scope="col">Firewall</th>' : ''}<th scope="col">Result</th><th scope="col">In the backup</th><th scope="col">Fix</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </details>`;
+  }).join('');
+}
+
+['cveFw', 'cveVd', 'cveSev'].forEach((id) => $('#' + id).addEventListener('change', () => { syncCveHash(); renderCves(); }));
+$('#cveQ').addEventListener('input', debounce(() => { syncCveHash(); renderCves(); }, 150));
+$('#cveReload').onclick = (e) => busy(e.target, async () => { try { await loadCves(true); renderCves(); } catch {} });
+
 // ---------- compliance ----------
 const CSTS = ['fail', 'review', 'pass', 'manual', 'na'];
 const CST_LABEL = { fail: 'Fail', review: 'Review', pass: 'Pass', manual: 'Manual', na: 'N/A' };
@@ -3157,12 +3331,13 @@ async function applyOverview() {
   const soft = (p) => p.catch(() => null);
   let fwList;
   mit.data = null;
-  const rest = Promise.all([soft(api('GET', '/api/auto')), soft(loadAudit(true)), soft(loadCompliance(compFwkId, true)), soft(loadMitigation())]);
+  const rest = Promise.all([soft(api('GET', '/api/auto')), soft(loadAudit(true)), soft(loadCompliance(compFwkId, true)), soft(loadMitigation()), soft(api('GET', '/api/cves?cached=1'))]);
   try { fwList = await api('GET', '/api/firewalls'); } catch (err) {
     if (seq === ovSeq) setMsg($('#ovMsg'), false, esc(err.message));
     return;
   }
-  const [auto, audit, comp, mitig] = await rest;
+  const [auto, audit, comp, mitig, cves] = await rest;
+  if (cves?.source.fetchedAt) { cveData = cves; setCveCount(cves); }
   if (seq !== ovSeq) return;
 
   // Backups are matched to firewalls on the host in the file name, which survives renames.
@@ -3174,6 +3349,7 @@ async function applyOverview() {
   for (const r of rows) {
     r.c = r.a && comp?.devices.find((d) => d.file === r.a.file);
     r.m = r.a && mitig?.devices.find((d) => d.file === r.a.file);
+    r.v = r.a && cves?.devices.find((d) => d.file === r.a.file);
   }
 
   const hasRows = rows.length > 0;
@@ -3205,6 +3381,13 @@ async function applyOverview() {
       }
       const fresh7 = (r.a.changes || []).filter((c) => Date.now() - new Date(c.to) < WEEK_MS).reduce((n, c) => n + c.newFindings.length, 0);
       if (fresh7) add('warn', `${plural(fresh7, 'new finding')} in the last 7 days`, sec, 'Security');
+    }
+    if (r.v?.counts) {
+      const { urgent, exploited, exposed } = r.v.counts;
+      const href = `#cves?fw=${encodeURIComponent(r.a.file)}`;
+      if (exploited) add('err', `${plural(exploited, 'CVE')} exploited in the wild affect${exploited === 1 ? 's' : ''} FortiOS ${r.v.device.version}`, href, 'CVEs');
+      if (urgent) add('err', `${plural(urgent, 'critical / high CVE')} for FortiOS ${r.v.device.version} not ruled out by the backup`, `${href}&sev=high`, 'CVEs');
+      else if (exposed) add('warn', `${plural(exposed, 'CVE')} for FortiOS ${r.v.device.version} in features that are in use`, `${href}&vd=exposed`, 'CVEs');
     }
     const job = r.id && auto?.results?.[r.id];
     if (job && (!job.ok || job.warning)) {

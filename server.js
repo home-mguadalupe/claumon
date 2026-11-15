@@ -12,6 +12,7 @@ const push = require('./lib/push');
 const { audit, compare, CHECKS } = require('./lib/audit');
 const compliance = require('./lib/compliance');
 const mitigation = require('./lib/mitigation');
+const cve = require('./lib/cve');
 // Inventory DB is optional: only loaded when DATABASE_URL is set.
 const inventory = process.env.DATABASE_URL ? require('./lib/inventory') : null;
 const iplookup = process.env.DATABASE_URL ? require('./lib/iplookup') : null;
@@ -250,6 +251,27 @@ async function handle(req, res) {
     }
     devices.sort((a, b) => String(a.hostname).localeCompare(String(b.hostname)));
     return send(res, 200, { devices }, req);
+  }
+
+  // Known CVEs of the FortiOS version in the newest backup of each device, and whether the
+  // affected feature is in use there. ?refresh=1 downloads the CVE list again, ?cached=1
+  // never downloads (used by the Overview, which must not wait for the internet).
+  if (m === 'GET' && p === '/api/cves') {
+    const q = url.searchParams;
+    const { db, source } = await cve.load({ force: q.get('refresh') === '1', cachedOnly: q.get('cached') === '1' });
+    const devices = [];
+    for (const [device, all] of backupsByDevice()) {
+      const b = all[0];
+      const base = { file: b.file, takenAt: b.mtime, hostname: device };
+      if (!db) { devices.push(base); continue; }
+      try {
+        devices.push({ ...base, ...cve.forBackup(path.join(BACKUP_DIR, b.file), db.cves) });
+      } catch (err) {
+        devices.push({ ...base, error: err.message });
+      }
+    }
+    devices.sort((a, b) => String(a.hostname).localeCompare(String(b.hostname)));
+    return send(res, 200, { source, devices }, req);
   }
 
   if (p.startsWith('/api/inventory/') && !inventory) {
