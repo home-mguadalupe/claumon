@@ -422,14 +422,41 @@ async function handle(req, res) {
   }
 
   if (m === 'GET' && p === '/api/push/status') {
-    return send(res, 200, { enabled: PUSH_ENABLED, types: Object.fromEntries(Object.entries(push.TYPES).map(([k, t]) => [k, t.label])) });
+    return send(res, 200, {
+      enabled: PUSH_ENABLED,
+      types: Object.fromEntries(Object.entries(push.TYPES).map(([k, t]) => [k, t.label])),
+      global: Object.keys(push.TYPES).filter((k) => push.TYPES[k].global),
+      listable: Object.keys(push.TYPES).filter((k) => push.TYPES[k].read),
+    });
   }
 
   if (m === 'GET' && p === '/api/push/history') {
     return send(res, 200, push.history(Number(url.searchParams.get('limit')) || 100));
   }
 
-  // Body: { targets: [{ firewall: id, vdom }], type, data, update, dryRun }
+  // Body: { firewalls: [ids], type, name }. Deletes that entry (an administrator) from each.
+  if (m === 'POST' && p === '/api/push/delete') {
+    if (!PUSH_ENABLED) return send(res, 403, { error: 'Pushing is disabled. Start the server with ENABLE_PUSH=1 to enable it.' });
+    const b = await readJson(req);
+    const ids = [...new Set((Array.isArray(b.firewalls) ? b.firewalls : []).map(String))];
+    if (!ids.length) throw new Error('Select at least one firewall');
+    const fws = [];
+    for (const id of ids) {
+      const fw = await firewalls.get(id);
+      if (!fw) return send(res, 404, { error: 'Firewall not found' });
+      fws.push(fw);
+    }
+    return send(res, 200, { results: await push.remove(fws, b.type, b.name) });
+  }
+
+  // Checks one object definition without touching a firewall (throws on invalid input).
+  if (m === 'POST' && p === '/api/push/validate') {
+    const b = await readJson(req);
+    push.buildPayload(b.type, b.data);
+    return send(res, 200, { ok: true });
+  }
+
+  // Body: { targets: [{ firewall: id, vdom }], type, data, update, dryRun, objects: [{ type, data }] }
   // (or { firewalls: [ids], vdom } for one VDOM on each). dryRun only reads from the devices.
   if (m === 'POST' && p === '/api/push') {
     const b = await readJson(req);
@@ -447,7 +474,7 @@ async function handle(req, res) {
       fwById.set(id, fw);
     }
     const targets = wanted.map((t) => ({ fw: fwById.get(t.id), vdom: t.vdom }));
-    return send(res, 200, await push.push(targets, { type: b.type, data: b.data, update: b.update, dryRun: !!b.dryRun }));
+    return send(res, 200, await push.push(targets, { type: b.type, data: b.data, update: b.update, dryRun: !!b.dryRun, objects: b.objects }));
   }
 
   match = p.match(/^\/api\/firewalls\/([\w-]+)\/vdoms$/);
@@ -455,6 +482,14 @@ async function handle(req, res) {
     const fw = await firewalls.get(match[1]);
     if (!fw) return send(res, 404, { error: 'Firewall not found' });
     return send(res, 200, { vdoms: await push.vdoms(fw) });
+  }
+
+  // What the device has of a type today (administrators), read live, for editing.
+  match = p.match(/^\/api\/firewalls\/([\w-]+)\/existing$/);
+  if (m === 'GET' && match) {
+    const fw = await firewalls.get(match[1]);
+    if (!fw) return send(res, 404, { error: 'Firewall not found' });
+    return send(res, 200, { items: await push.existing(fw, url.searchParams.get('type')) });
   }
 
   // Object names on the device (interfaces, addresses, services, ...) for autocompletion.

@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-11-17 — Push: FortiOS-style form, objects along the way, administrators
+
+### Changed: Push tab
+The form now follows the FortiOS editor and opens on **Policy**.
+
+- One row per setting, ACCEPT / DENY buttons, switches, comments with a counter.
+- Interfaces, addresses, services, schedule and group members are picked in a slide-in
+  **Select Entries** panel: grouped by kind, with search and keyboard control. Names the
+  firewall does not list can still be typed.
+- Logging defaults to **Security Events** (was all sessions). `any` is offered as an interface.
+
+### New: create objects along the way
+Addresses, address groups, services, service groups and schedules can be defined from the
+Select Entries panel while writing a policy (or a group).
+
+- They are created with the push, before the policy, on the firewalls that miss them; the
+  preview shows each one per firewall. If one fails, the policy is not pushed there.
+- New object types: **Recurring schedule** and **One-time schedule**.
+- New API: `POST /api/push/validate`; `POST /api/push` takes `objects`.
+
+### New: administrators
+Create, edit and delete administrator accounts on the ticked firewalls.
+
+- Once per firewall; the ticked VDOMs become the account's VDOM access.
+- The tab lists the accounts the firewalls have today, with **Edit** and **Delete**.
+- Passwords are never logged or echoed. The only `super_admin` of a firewall is never deleted.
+- New API: `GET /api/firewalls/:id/existing?type=admin`, `POST /api/push/delete`.
+- The API admin needs read-write access to System for this.
+
+Not yet run against a real FortiGate: checked in the browser and against a stubbed device.
+
 ## 2026-11-16 — Login
 
 ### New: login

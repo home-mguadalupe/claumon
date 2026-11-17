@@ -282,9 +282,13 @@ undo it. With the inventory database, a policy links to its row in Inventory.
 | Shadowed policy | Disable it if not needed (low impact), or move it above the broader policy (can break traffic) | |
 
 ### Push
-Creates or updates objects on one or more firewalls through the REST API:
-**Address** (subnet, IP range or FQDN), **Address group**, **Service** (TCP/UDP/SCTP
-ports, ICMP or IP protocol), **Service group** and **Policy**.
+Creates or updates configuration on one or more firewalls through the REST API:
+**Policy**, **Address** (subnet, IP range or FQDN), **Address group**, **Service**
+(TCP/UDP/SCTP ports, ICMP or IP protocol), **Service group**, **Recurring schedule**,
+**One-time schedule** and **Administrator**.
+
+The form follows the FortiOS editor: one row per setting, ACCEPT / DENY buttons, switches,
+and entry boxes that open a **Select Entries** panel.
 
 - Tick one or more firewalls, then tick one or more **VDOMs**. The VDOM list shows every
   VDOM of the ticked firewalls (with several ticked, `2/3` = on how many of them it
@@ -292,22 +296,47 @@ ports, ICMP or IP protocol), **Service group** and **Policy**.
   VDOMs come from each firewall's newest inventory snapshot, so they appear instantly;
   only firewalls without a snapshot are asked over the API. A VDOM created since the last
   backup appears after the next backup.
-- Interface, address, service and schedule names are suggested live from the first
-  ticked firewall and VDOM.
+- **Select Entries**: click an entry box (interfaces, source, destination, service,
+  schedule, group members) to pick from what the first ticked firewall and VDOM has,
+  grouped by kind, with search. `↑ ↓` and `Enter` pick, `Esc` goes back. A name the
+  firewall does not list can be typed and used as it is.
+- **Create along the way**: the panel has **+ Address**, **+ Address group**, **+ Service**,
+  **+ Service group**, **+ Recurring schedule** and **+ One-time schedule**. What was typed
+  in the search becomes the name (and the subnet, when it is one). Such an object is
+  tagged `new`; nothing is created until the push, which creates addresses, services and
+  schedules first, then groups, then the policy. An object a firewall already has is used
+  as it is. If one fails on a firewall, the policy is not pushed there.
 - Subnets can be typed as `10.1.0.0/24`, `10.1.0.0 255.255.255.0` or a single host IP.
   Port ranges as `443 8080-8090`, or `dst:src` (`1000:2000`).
-- List fields (group members, policy interfaces / addresses / services): type a name and
-  press Enter, or pick a suggestion.
-- **Preview** only reads from the firewalls: it shows the exact API request and, per
-  firewall, whether the object will be created, updated, or already exists.
+- Policies: logging defaults to **Security Events**; a DENY policy has no NAT and logs
+  violations (on / off). New policies go to the bottom of the list, or above
+  **Insert above policy ID**.
+- **Preview** only reads from the firewalls: it shows the exact API requests and, per
+  firewall, whether each object will be created, updated, or already exists.
   **Push** is enabled only after a preview of exactly the current form.
 - Existing objects are left alone unless **Update … if it exists** is ticked. Policies
   are matched by name (a policy without a name is always created).
-- New policies go to the bottom of the list, or above **Place before policy ID**.
 - Every push (per firewall, with the payload and result) is appended to
   `data/push-log.jsonl` and shown under **Recent pushes**.
 - Pushing needs `ENABLE_PUSH=1` and an API admin profile with read-write access to
-  Firewall configuration. Changes reach the inventory with the next backup.
+  Firewall configuration (and to System, for administrators). Changes reach the inventory
+  with the next backup.
+
+**Administrators** are global: each ticked firewall gets the account once, and the ticked
+VDOMs become the VDOMs it may access (not sent for `super_admin` profiles).
+
+- The tab lists the administrators the ticked firewalls have today, read live. With several
+  firewalls there is one row per username, with on how many it exists and a `differs` tag
+  when its settings are not the same everywhere. REST API admins are not listed.
+- **Edit** loads an account into the form (from the first firewall that has it), ticks the
+  update option and the VDOMs it has today, and locks the username.
+- Local user, or a match on a remote user group (optionally all its users). The password is
+  typed twice; empty on an update keeps the current one, and a firewall where the account
+  does not exist yet refuses the push rather than create it without one.
+- Trusted hosts: up to 10. Setting any replaces the whole list on an update.
+- The password is never written to `data/push-log.jsonl` or shown in the preview.
+- **Delete** removes the account from every ticked firewall that has it, after a
+  confirmation. The only `super_admin` account of a firewall is never deleted.
 
 Keyboard: `/` focuses the search box, `Esc` clears it.
 
@@ -325,7 +354,7 @@ lib/cve.js           CVE list from NVD, version matching, feature-in-use check (
 lib/compliance.js    CIS / PCI DSS control mappings and scoring (Compliance tab)
 public/report.html   printable compliance report (/report)
 lib/mitigation.js    fix steps and priority of each risky policy (Mitigation tab)
-lib/push.js          creating / updating objects and policies on firewalls
+lib/push.js          creating / updating objects, policies and administrators on firewalls
 lib/fgtparse.js      FortiOS config parser
 lib/extract.js       extracts inventory records from a parsed config
 lib/inventory.js     PostgreSQL ingest + queries
@@ -365,8 +394,11 @@ backups/             backup files (*.conf) + device metadata (*.meta.json)
 | GET    | `/api/compliance?framework=&file=`           | Compliance with `cis` (default) or `pci` of the newest backup per device (or one file): score, counts and every control's status with its evidence |
 | GET    | `/report?framework=&file=`                   | Printable compliance report (HTML, save as PDF from the browser) |
 | GET    | `/api/mitigation`                            | Risky policies of the newest backup per device and how to fix each one |
-| GET    | `/api/push/status`                           | Whether pushing is enabled, object types |
-| POST   | `/api/push`                                  | Create / update an object on firewalls. Body: `{ targets: [{ firewall: id, vdom }], type, data, update, dryRun }` (or `firewalls: [ids], vdom`); `type` = `address`, `addrgrp`, `service`, `servicegrp`, `policy`; `dryRun` only checks |
+| GET    | `/api/push/status`                           | Whether pushing is enabled, object types, which are global / can be listed |
+| POST   | `/api/push`                                  | Create / update an object on firewalls. Body: `{ targets: [{ firewall: id, vdom }], type, data, update, dryRun }` (or `firewalls: [ids], vdom`); `type` = `address`, `addrgrp`, `service`, `servicegrp`, `schedule`, `schedonce`, `admin`, `policy`; `objects: [{ type, data }]` are created first where missing; `dryRun` only checks |
+| POST   | `/api/push/validate`                         | Check one object definition (`{ type, data }`) without touching a firewall |
+| POST   | `/api/push/delete`                           | Delete an administrator from firewalls. Body: `{ firewalls: [ids], type: "admin", name }` |
+| GET    | `/api/firewalls/:id/existing?type=admin`     | The administrators the firewall has today, read live |
 | GET    | `/api/push/history?limit=`                   | Recent pushes, newest first          |
 | POST   | `/api/firewalls/:id/routes`                  | Read the routing table of every VDOM and store it |
 | GET    | `/api/routes/snapshots`                      | List stored routing tables           |
@@ -410,8 +442,9 @@ Sections: `interfaces`, `policies`, `addresses`, `addrgrps`, `services`, `servic
     running server) can decrypt the keys. Give the FortiGate API user a
     **read-only** profile and restrict its **trusted hosts** to this server.
 - **Pushing changes is off by default.** With `ENABLE_PUSH=1`, anyone who is logged in
-  can change firewall policies. Pushing also needs a **read-write** API profile; limit it to Firewall
-  configuration (and the VDOMs you manage), or keep read-only firewalls for backups only.
+  can change firewall policies and create, change or delete administrators. Pushing also needs a
+  **read-write** API profile; limit it to Firewall configuration (and the VDOMs you manage), add
+  System only if you manage administrators here, or keep read-only firewalls for backups only.
 - Backups contain the full configuration. `data/` and `backups/` are set to mode
   `0700`, files to `0600`, and both are git-ignored. Treat them as secrets.
 - Leave **Verify TLS cert** on wherever the firewall has a trusted certificate.

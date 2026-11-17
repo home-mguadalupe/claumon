@@ -372,21 +372,77 @@
   .seg button { height:28px; border:1px solid transparent; background:none; font-size:13px; color:var(--muted); }
   .seg button:hover { background:none; border-color:transparent; color:var(--fg); }
   .seg button[aria-checked="true"] { background:var(--bg); border-color:var(--line-strong); color:var(--fg); font-weight:600; }
-  .puform { grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); align-items:start; }
-  .puform .wide { grid-column:1 / -1; }
+  /* The object form follows the FortiOS editor: one row per setting, label left, control right. */
+  .puform { grid-template-columns:minmax(0, 1fr); gap:8px; align-items:start; max-width:760px; }
   .puform [hidden] { display:none; }
-  .puform label.check { align-self:end; }
+  .ptitle { font-size:15px; font-weight:620; padding-bottom:8px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+  .prow { display:grid; grid-template-columns:200px minmax(0, 1fr); gap:4px 16px; align-items:start; }
+  .plabel { display:flex; align-items:center; gap:0; min-height:32px; font-size:13.5px; font-weight:500; color:var(--fg); }
+  .pctl { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; min-height:32px; min-width:0; }
+  .pctl > input:not([type=checkbox]), .pctl > select, .pctl > textarea { width:100%; max-width:420px; }
+  .pctl textarea { min-height:64px; padding:6px 9px; border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--fg); font:inherit; font-size:13.5px; resize:vertical; }
+  .pctl textarea:hover { border-color:var(--muted); }
+  .pctl textarea:focus { outline:2px solid transparent; border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring); }
+  .pctl .count { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .psec { margin-top:10px; padding:6px 10px; border-radius:var(--radius-sm); background:var(--surface-2); font-size:12.5px; font-weight:600; }
   .field { display:grid; gap:4px; font-size:12.5px; font-weight:500; color:var(--muted); }
-  .req::after { content:" *"; color:var(--err); }
-  .chips { display:flex; flex-wrap:wrap; gap:4px; align-items:center; min-height:32px; padding:2px 3px; border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); cursor:text; }
-  .chips:hover { border-color:var(--muted); }
-  .chips:focus-within { border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring); }
-  .chips input:not([type=checkbox]) { flex:1; min-width:140px; height:26px; padding:0 6px; border:none; box-shadow:none; background:transparent; }
-  .chips input:focus { box-shadow:none !important; }
-  .chip { display:inline-flex; align-items:center; gap:2px; height:24px; padding:0 2px 0 8px; border-radius:4px; background:var(--surface-2); border:1px solid var(--line); font-size:12.5px; font-weight:400; color:var(--fg); max-width:100%; }
-  .chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .chip button { width:20px; height:20px; padding:0; border:none; background:none; color:var(--muted); font-size:15px; line-height:1; }
+  .req::after { content:"*"; margin-left:3px; color:var(--err); }
+  input.switch { appearance:none; -webkit-appearance:none; width:36px; height:20px; border-radius:10px; background:var(--line-strong); position:relative; transition:background .12s; }
+  input.switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgb(0 0 0 / .3); transition:transform .12s; }
+  input.switch:checked { background:var(--ok); }
+  input.switch:checked::after { transform:translateX(16px); }
+  .seg.act { gap:6px; padding:0; background:none; }
+  .seg.act button { height:32px; min-width:104px; border-color:var(--line-strong); background:var(--surface); font-weight:600; letter-spacing:.02em; }
+  .seg.act button:hover { border-color:var(--muted); }
+  .seg.act button[data-v="accept"][aria-checked="true"] { background:var(--ok-soft); border-color:var(--ok); color:var(--ok); }
+  .seg.act button[data-v="deny"][aria-checked="true"] { background:var(--err-soft); border-color:var(--err); color:var(--err); }
+  .existing { display:grid; gap:8px; }
+  .existing .exhead { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; font-weight:600; }
+  .existing .btns { display:flex; gap:6px; justify-content:flex-end; }
+  .existing td { vertical-align:middle; font-size:13px; }
+  .existing tr.editing > td { background:var(--accent-soft); }
+  .puform input[readonly] { background:var(--surface-2); color:var(--muted); }
+  .days { display:flex; flex-wrap:wrap; gap:6px; }
+  .days label.check { min-height:28px; padding:0 9px 0 7px; gap:6px; border:1px solid var(--line-strong); border-radius:var(--radius-sm); font-size:13px; }
+  .days label.check:has(input:checked) { border-color:var(--fg); background:var(--accent-soft); }
+  .pctl .hint2 { flex-basis:100%; font-size:12px; color:var(--muted); }
+  /* Entry box: the selected objects one per line, "+" opens the Select Entries panel. */
+  .entries { display:grid; width:100%; max-width:420px; border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); cursor:pointer; overflow:hidden; }
+  .entries:hover { border-color:var(--muted); }
+  .entries.open { border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring); }
+  .entries .chip { display:flex; align-items:center; gap:8px; min-height:28px; padding:0 4px 0 9px; border-bottom:1px solid var(--line); font-size:13.5px; color:var(--fg); min-width:0; }
+  .entries .chip > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chip button { width:24px; height:24px; padding:0; border:none; background:none; color:var(--muted); font-size:16px; line-height:1; }
   .chip button:hover { color:var(--err); background:none; }
+  .entries .addent { height:30px; width:100%; border:none; border-radius:0; background:none; color:var(--muted); font-size:18px; font-weight:400; }
+  .entries .addent:hover { background:var(--surface-2); color:var(--fg); }
+  .oi { width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke-width:1.4; stroke-linecap:round; stroke-linejoin:round; color:var(--muted); }
+  .oi.interface, .oi.zone, .oi.schedule { color:var(--info); } .oi.address, .oi.vip { color:var(--ok); } .oi.group { color:var(--warn); } .oi.service { color:#8b6fd6; }
+  .pick { position:fixed; top:0; right:0; bottom:0; z-index:20; width:min(400px, 100vw); display:flex; flex-direction:column; background:var(--surface); box-shadow:var(--overlay); animation:slide-in .16s ease-out; }
+  .pick[hidden], .pick [hidden] { display:none !important; }
+  .pick-new { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:0 12px 10px; font-size:12.5px; color:var(--muted); }
+  .pick-form { flex:1; overflow:auto; padding:12px 16px; align-content:start; }
+  .pick-form .prow { grid-template-columns:minmax(0, 1fr); gap:2px; }
+  .pick-form .plabel { min-height:0; font-size:12.5px; color:var(--muted); }
+  .pick .msg { margin:0 16px 10px; }
+  .pick-foot .btns { display:flex; gap:8px; }
+  .tag-new { flex:none; padding:0 5px; border:1px solid var(--ok); border-radius:4px; font-size:11px; font-style:normal; font-weight:600; line-height:16px; color:var(--ok); }
+  .deps { display:grid; gap:4px; margin:0 0 6px; padding:0; list-style:none; font-size:13px; }
+  .pick-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 12px 10px 16px; border-bottom:1px solid var(--line); }
+  .pick-head h3 { margin:0; font-size:14px; font-weight:620; }
+  .pick-head .for { font-weight:400; color:var(--muted); }
+  .pick-q { padding:10px 12px; }
+  .pick-q input { width:100%; }
+  .pick-list { flex:1; overflow:auto; padding:0 6px 8px; }
+  .pick-gh { position:sticky; top:0; padding:6px 8px 4px; background:var(--surface); font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  .pick .opt { display:flex; align-items:center; gap:8px; min-height:30px; padding:0 8px; border-radius:var(--radius-sm); font-size:13.5px; cursor:pointer; }
+  .pick .opt > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pick .opt:hover, .pick .opt.active { background:var(--surface-2); }
+  .pick .opt.active { box-shadow:inset 0 0 0 1px var(--line-strong); }
+  .pick .opt[aria-selected="true"] { background:var(--ok-soft); }
+  .pick .opt[aria-selected="true"]::after { content:"✓"; color:var(--ok); font-weight:700; }
+  .pick .empty, .pick .more { padding:8px; font-size:12.5px; color:var(--muted); }
+  .pick-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px 12px 16px; border-top:1px solid var(--line); font-size:12.5px; color:var(--muted); }
   .pubar { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; justify-content:space-between; padding-top:14px; border-top:1px solid var(--line); }
   .pubar .btns { display:flex; gap:8px; }
   .plan { display:grid; gap:14px; margin-top:16px; }
@@ -396,6 +452,8 @@
   #puHist td { font-size:13px; }
   @media (max-width: 820px) {
     .push { grid-template-columns:minmax(0, 1fr); }
+    .prow { grid-template-columns:minmax(0, 1fr); }
+    .plabel { min-height:0; }
   }
 
   @media (max-width: 600px) {
@@ -680,14 +738,14 @@
 <div class="view" data-view="push" hidden>
   <div class="banner" id="puOff" role="note" hidden>
     Pushing is disabled on this server: <b>Preview</b> works (it only reads from the firewalls), <b>Push</b> does not.
-    Restart the server with <code>ENABLE_PUSH=1</code> to allow changes. The app has no login, so only enable it where
-    nobody else can reach it.
+    Restart the server with <code>ENABLE_PUSH=1</code> to allow changes. Everyone who can log in here can then change the
+    firewalls, administrators included.
   </div>
   <section aria-labelledby="puTitle">
     <div class="page-head">
       <div>
         <h2 id="puTitle">Push configuration</h2>
-        <div class="sub">Create or update addresses, services, groups and policies on one or more firewalls. Preview first, then push.</div>
+        <div class="sub">Create or update policies, their objects and administrators on one or more firewalls. Preview first, then push.</div>
       </div>
     </div>
     <div class="push">
@@ -704,8 +762,9 @@
         <div class="hint2" id="puSugg" role="status" aria-live="polite"></div>
       </fieldset>
       <fieldset>
-        <legend>2 · Object</legend>
+        <legend>2 · Configuration</legend>
         <div class="seg" role="radiogroup" aria-label="Object type" id="puTypes"></div>
+        <div class="existing" id="puExisting" hidden></div>
         <form class="puform" id="puForm" novalidate></form>
         <div class="pubar">
           <label class="check"><input type="checkbox" id="puUpdate"> Update the object if it already exists</label>
@@ -718,8 +777,23 @@
     </div>
     <div class="msg" id="puMsg" role="status" aria-live="polite" hidden></div>
     <div class="plan" id="puPlan" hidden></div>
-    <datalist id="pu-dl-interfaces"></datalist><datalist id="pu-dl-addresses"></datalist>
-    <datalist id="pu-dl-services"></datalist><datalist id="pu-dl-schedules"></datalist><datalist id="pu-dl-categories"></datalist>
+    <datalist id="pu-dl-interfaces"></datalist><datalist id="pu-dl-categories"></datalist>
+    <aside class="pick" id="puPick" role="dialog" aria-labelledby="puPickT" hidden>
+      <div class="pick-head">
+        <button type="button" class="ghost small" id="puPickBack" aria-label="Back" title="Back" hidden>‹</button>
+        <h3 id="puPickT" style="flex:1"></h3>
+        <button type="button" class="ghost small" id="puPickX" aria-label="Close">✕</button>
+      </div>
+      <div class="pick-q"><input type="search" id="puPickQ" placeholder="Search or type a name" aria-label="Search entries" role="combobox"
+        aria-controls="puPickList" aria-expanded="true" aria-autocomplete="list" autocomplete="off" spellcheck="false"></div>
+      <div class="pick-new" id="puPickNew"></div>
+      <div class="pick-list" id="puPickList" role="listbox" aria-multiselectable="true" aria-label="Entries"></div>
+      <form class="puform pick-form" id="puPickForm" novalidate hidden></form>
+      <div class="msg" id="puPickMsg" role="alert" hidden></div>
+      <div class="pick-foot"><span id="puPickNote"></span>
+        <div class="btns"><button type="button" id="puPickClose">Close</button><button type="button" class="primary" id="puPickAdd" hidden>Add</button></div>
+      </div>
+    </aside>
   </section>
 
   <section aria-labelledby="puHistTitle">
@@ -2180,13 +2254,13 @@ const PUSH_FIELDS = {
     { k: 'start-ip', label: 'Start IP', req: true, ph: '10.1.0.10', when: ['type', 'iprange'] },
     { k: 'end-ip', label: 'End IP', req: true, ph: '10.1.0.20', when: ['type', 'iprange'] },
     { k: 'fqdn', label: 'FQDN', req: true, ph: 'app.example.com', when: ['type', 'fqdn'] },
-    { k: 'associated-interface', label: 'Interface (optional)', list: 'interfaces' },
-    { k: 'comment', label: 'Comment', wide: true },
+    { k: 'associated-interface', label: 'Interface', ph: 'Optional', list: 'interfaces' },
+    { k: 'comment', label: 'Comments', area: true },
   ],
   addrgrp: [
     NAME,
-    { k: 'member', label: 'Members', req: true, chips: 'addresses', wide: true },
-    { k: 'comment', label: 'Comment', wide: true },
+    { k: 'member', label: 'Members', req: true, chips: 'addresses' },
+    { k: 'comment', label: 'Comments', area: true },
   ],
   service: [
     NAME,
@@ -2196,34 +2270,64 @@ const PUSH_FIELDS = {
     { k: 'sctp-portrange', label: 'SCTP ports', when: ['protocol', 'TCP/UDP/SCTP'] },
     { k: 'icmptype', label: 'ICMP type (empty = any)', ph: '8', num: true, when: ['protocol', 'ICMP'] },
     { k: 'protocol-number', label: 'IP protocol number', req: true, ph: '47', num: true, when: ['protocol', 'IP'] },
-    { k: 'category', label: 'Category (optional)', list: 'categories' },
-    { k: 'comment', label: 'Comment', wide: true },
+    { k: 'category', label: 'Category', ph: 'Optional', list: 'categories' },
+    { k: 'comment', label: 'Comments', area: true },
   ],
   servicegrp: [
     NAME,
-    { k: 'member', label: 'Members', req: true, chips: 'services', wide: true },
-    { k: 'comment', label: 'Comment', wide: true },
+    { k: 'member', label: 'Members', req: true, chips: 'services' },
+    { k: 'comment', label: 'Comments', area: true },
+  ],
+  schedule: [
+    NAME,
+    { k: 'day', label: 'Days', req: true, days: true },
+    { k: 'start', label: 'Start time', itype: 'time', value: '00:00' },
+    { k: 'end', label: 'Stop time', itype: 'time', value: '00:00', hint: 'Start and stop both 00:00 = all day.' },
+  ],
+  schedonce: [
+    NAME,
+    { k: 'start', label: 'Start', req: true, itype: 'datetime-local' },
+    { k: 'end', label: 'End', req: true, itype: 'datetime-local' },
+  ],
+  admin: [
+    { k: 'name', label: 'Username', req: true },
+    { k: 'kind', label: 'Type', opts: [['local', 'Local User'], ['remote', 'Match a user on a remote server group']] },
+    { k: 'remote-group', label: 'Remote User Group', req: true, chips: 'usergroups', single: true, when: ['kind', 'remote'] },
+    { k: 'wildcard', label: 'Match all users in the group', check: true, when: ['kind', 'remote'] },
+    { k: 'password', label: 'Password', itype: 'password', raw: true,
+      hint: 'At least 8 characters. Empty on an update keeps the current password; not used when all users of a remote group match.' },
+    { k: 'password2', label: 'Confirm Password', itype: 'password', raw: true, confirm: 'password' },
+    { k: 'accprofile', label: 'Administrator Profile', req: true, chips: 'accprofiles', single: true },
+    { k: 'force-password-change', label: 'Force password change at next login', check: true, when: ['kind', 'local'] },
+    { k: '_trust', section: 'Restrict login to trusted hosts' },
+    { k: 'trusthost', label: 'Trusted Hosts', ph: '10.0.0.0/24, 192.168.1.10', hint: 'Up to 10, comma separated. Empty = from any address.' },
+    { k: 'comments', label: 'Comments', area: true },
   ],
   policy: [
-    { k: 'name', label: 'Name', ph: 'Optional, but needed to detect an existing policy' },
-    { k: 'action', label: 'Action', opts: [['accept', 'Accept'], ['deny', 'Deny']] },
-    { k: 'srcintf', label: 'Incoming interface', req: true, chips: 'interfaces' },
-    { k: 'dstintf', label: 'Outgoing interface', req: true, chips: 'interfaces' },
+    { k: 'name', label: 'Name', ph: 'Needed to detect an existing policy' },
+    { k: 'srcintf', label: 'Incoming Interface', req: true, chips: 'interfaces' },
+    { k: 'dstintf', label: 'Outgoing Interface', req: true, chips: 'interfaces' },
     { k: 'srcaddr', label: 'Source', req: true, chips: 'addresses' },
     { k: 'dstaddr', label: 'Destination', req: true, chips: 'addresses' },
-    { k: 'service', label: 'Service', req: true, chips: 'services', wide: true },
-    { k: 'schedule', label: 'Schedule', value: 'always', list: 'schedules' },
-    { k: 'logtraffic', label: 'Log traffic', opts: [['all', 'All sessions'], ['utm', 'Security events'], ['disable', 'Disabled']] },
-    { k: 'before', label: 'Place before policy ID', ph: 'Empty = bottom of the list', num: true },
+    { k: 'schedule', label: 'Schedule', req: true, chips: 'schedules', single: true, value: 'always' },
+    { k: 'service', label: 'Service', req: true, chips: 'services' },
+    { k: 'action', label: 'Action', seg: true, opts: [['accept', '✓ ACCEPT'], ['deny', '⊘ DENY']] },
+    { k: '_net', section: 'Firewall/Network Options', when: ['action', 'accept'] },
     { k: 'nat', label: 'NAT', check: true, when: ['action', 'accept'] },
-    { k: 'status', label: 'Enabled', check: true, checked: true },
-    { k: 'comments', label: 'Comments', wide: true },
+    { k: '_log', section: 'Logging Options' },
+    { k: 'logtraffic', label: 'Log Allowed Traffic', log: true },
+    { k: 'comments', label: 'Comments', area: true },
+    { k: 'status', label: 'Enable this policy', check: true, checked: true },
+    { k: '_seq', section: 'Sequence' },
+    { k: 'before', label: 'Insert above policy ID', ph: 'Empty = bottom of the list', num: true },
   ],
 };
 
 const pu = {
-  enabled: false, types: {}, type: 'address', selected: new Set(),
-  sugg: new Map(), suggId: 0,  // "<fw id>|<vdom>" -> suggestion lists
+  enabled: false, types: {}, global: [], listable: [], type: 'policy', selected: new Set(),
+  existing: new Map(), editing: null,  // "<type>|<fw id>" -> { items | error | loading }; name being edited
+  sugg: new Map(), suggId: 0, cur: null,
+  newObjs: [],                 // { type, data }: objects defined in the picker, created with the push  // "<fw id>|<vdom>" -> suggestion lists
   fwVdoms: new Map(),          // fw id -> { vdoms: [...] | null (unknown), loading } read live
   vdomSel: new Set(['root']),  // ticked VDOMs
   planned: null,               // request (as JSON) the current preview was made for
@@ -2232,7 +2336,10 @@ const pu = {
 async function loadPushStatus() {
   try {
     const s = await api('GET', '/api/push/status');
-    Object.assign(pu, { enabled: s.enabled, types: s.types });
+    // Policies are what gets pushed most: they come first.
+    const { policy, ...rest } = s.types;
+    Object.assign(pu, { enabled: s.enabled, types: policy ? { policy, ...rest } : rest, global: s.global || [], listable: s.listable || [] });
+    if (!pu.types[pu.type]) pu.type = Object.keys(pu.types)[0];
   } catch {}
   $('#puOff').hidden = pu.enabled;
   $('#puTypes').innerHTML = Object.entries(pu.types).map(([k, label]) =>
@@ -2306,7 +2413,7 @@ function renderVdomPicker() {
   if (infos.some((i) => i.loading)) note.push('Reading VDOMs from the firewalls without an inventory snapshot…');
   if (unknown.length) note.push(`VDOMs of ${unknown.map((i) => i.f.name).join(', ')} unknown (no inventory snapshot, device not reachable).`);
   const n = pushTargets().length;
-  if (picked.length && sel.size && n > picked.length) note.push(`${n} firewall/VDOM pairs.`);
+  if (picked.length && sel.size && n > picked.length && !pu.global.includes(pu.type)) note.push(`${n} firewall/VDOM pairs.`);
   $('#puVdomNote').textContent = note.join(' ');
 }
 
@@ -2346,6 +2453,7 @@ $('#puFwList').onchange = (e) => {
   keepFocus($('#puFwList'), renderPushTargets);
   loadLiveVdoms();
   loadSuggestions();
+  loadExisting();
 };
 $('#puAll').onchange = (e) => {
   for (const cb of document.querySelectorAll('#puFwList input[data-dev]')) {
@@ -2354,6 +2462,7 @@ $('#puAll').onchange = (e) => {
   renderPushTargets();
   loadLiveVdoms();
   loadSuggestions();
+  loadExisting();
 };
 $('#puVdoms').onchange = (e) => {
   const v = e.target.dataset.vdom;
@@ -2377,9 +2486,14 @@ async function loadSuggestions() {
   const vdom = t?.vdom;
   const id = ++pu.suggId;
   const fill = (s) => {
-    for (const k of ['interfaces', 'addresses', 'services', 'schedules', 'categories']) {
+    for (const k of ['interfaces', 'categories']) {
       $(`#pu-dl-${k}`).innerHTML = (s?.[k] || []).map((v) => `<option value="${esc(v)}">`).join('');
     }
+    pu.cur = s || null;
+    for (const box of document.querySelectorAll('#puForm .entries')) {
+      for (const c of box.querySelectorAll('.chip')) c.querySelector('.oi').outerHTML = objIcon(entryKind(box.dataset.src, c.dataset.v));
+    }
+    renderPick();
   };
   if (!fwId || !vdom) { fill(null); $('#puSugg').textContent = ''; return; }
   const name = fws.list.find((x) => x.id === fwId)?.name || '';
@@ -2401,38 +2515,105 @@ async function loadSuggestions() {
 }
 
 // ----- object form -----
-function fieldHtml(f) {
-  const id = `pu-${f.k}`;
-  const cls = [f.wide && 'wide'].filter(Boolean).join(' ');
-  const lbl = `<span class="${f.req ? 'req' : ''}">${esc(f.label)}</span>`;
-  if (f.check) {
-    return `<label class="check ${cls}" data-k="${f.k}"><input type="checkbox" id="${id}" ${f.checked ? 'checked' : ''}> ${esc(f.label)}</label>`;
-  }
-  if (f.opts) {
-    return `<label class="${cls}" data-k="${f.k}">${lbl}<select id="${id}">${f.opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>`;
-  }
+// Small type icons for the entries, as in the FortiOS selectors.
+const OBJ_ICONS = {
+  interface: '<rect x="2" y="4" width="12" height="9" rx="1"/><path d="M5 4V2h6v2M5.5 13v-3M8 13v-3M10.5 13v-3"/>',
+  zone: '<rect x="2" y="2" width="12" height="12" rx="2" stroke-dasharray="2 2"/><circle cx="8" cy="8" r="2"/>',
+  address: '<rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 14h4M8 11v3"/>',
+  group: '<rect x="2" y="5" width="9" height="8" rx="1"/><path d="M5 5V3h9v8h-3"/>',
+  vip: '<circle cx="8" cy="8" r="6"/><path d="M5 8h6M9 6l2 2-2 2"/>',
+  service: '<circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
+  schedule: '<circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/>',
+  profile: '<circle cx="8" cy="5.5" r="2.5"/><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5"/>',
+  other: '<circle cx="8" cy="8" r="5"/>',
+};
+const OBJ_KIND = {
+  Interface: 'interface', Zone: 'zone', Address: 'address', 'Address Group': 'group', 'Virtual IP': 'vip',
+  'Virtual IP Group': 'group', Service: 'service', 'Service Group': 'group',
+  'Recurring Schedule': 'schedule', 'One-Time Schedule': 'schedule', 'Schedule Group': 'group',
+  'Administrator Profile': 'profile', 'User Group': 'group',
+};
+const objIcon = (kind) => `<svg class="oi ${kind}" viewBox="0 0 16 16" aria-hidden="true">${OBJ_ICONS[kind]}</svg>`;
+// What kind of object a name is on the first target firewall ("other" when it is not there).
+const FAMILY = { address: 'addresses', addrgrp: 'addresses', service: 'services', servicegrp: 'services', schedule: 'schedules', schedonce: 'schedules' };
+const CREATABLE = { addresses: ['address', 'addrgrp'], services: ['service', 'servicegrp'], schedules: ['schedule', 'schedonce'] };
+const NEW_KIND = { address: 'address', addrgrp: 'group', service: 'service', servicegrp: 'group', schedule: 'schedule', schedonce: 'schedule' };
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const newObj = (src, v) => pu.newObjs.find((o) => FAMILY[o.type] === src && o.data.name === v);
+function entryKind(src, v) {
+  if (newObj(src, v)) return NEW_KIND[newObj(src, v).type];
+  for (const [label, list] of pu.cur?.groups?.[src] || []) if (list.includes(v)) return OBJ_KIND[label] || 'other';
+  return 'other';
+}
+
+const segHtml = (id, opts, cls, labelId) => `<div class="seg ${cls}" role="radiogroup" id="${id}" data-seg data-v="${esc(opts[0][0])}" ${labelId ? `aria-labelledby="${labelId}"` : ''}>${
+  opts.map(([v, t], i) => `<button type="button" role="radio" data-v="${esc(v)}" aria-checked="${i === 0}">${esc(t)}</button>`).join('')}</div>`;
+
+function fieldHtml(f, p = 'pu') {
+  const id = `${p}-${f.k}`;
+  if (f.section) return `<div class="psec" data-k="${f.k}">${esc(f.section)}</div>`;
+  const own = f.chips || f.seg || f.days;  // labelled with aria-labelledby, not a <label for>
+  const lbl = `<${own ? 'span' : 'label'} class="plabel${f.req ? ' req' : ''}" id="${id}-l" ${own ? '' : `for="${id}"`}>${esc(f.label)}</${own ? 'span' : 'label'}>`;
+  let ctl;
   if (f.chips) {
-    return `<div class="field ${cls}" data-k="${f.k}"><span id="${id}-l" class="${f.req ? 'req' : ''}">${esc(f.label)}</span>
-      <div class="chips" data-chips="${f.k}"><input type="text" id="${id}" list="pu-dl-${f.chips}" aria-labelledby="${id}-l"
-        placeholder="Type a name, Enter to add" autocomplete="off" spellcheck="false"></div></div>`;
+    ctl = `<div class="entries" data-chips="${f.k}" data-src="${f.chips}" data-label="${esc(f.label)}" ${f.single ? 'data-single' : ''} role="group" aria-labelledby="${id}-l">
+      ${f.value ? chipHtml(f.chips, f.value) : ''}<button type="button" class="addent" aria-label="Select ${esc(f.label)} entries" title="Select entries">+</button></div>`;
+  } else if (f.days) {
+    ctl = `<div class="days" id="${id}" role="group" aria-labelledby="${id}-l">${DAY_NAMES.map((d) =>
+      `<label class="check"><input type="checkbox" data-day="${d}" checked> ${d[0].toUpperCase()}${d.slice(1, 3)}</label>`).join('')}</div>`;
+  } else if (f.seg) {
+    ctl = segHtml(id, f.opts, 'act', `${id}-l`);
+  } else if (f.log) {
+    ctl = `<input type="checkbox" role="switch" class="switch" id="${id}" checked>${segHtml(`${id}-mode`, [['utm', 'Security Events'], ['all', 'All Sessions']], '', `${id}-l`)}`;
+  } else if (f.check) {
+    ctl = `<input type="checkbox" role="switch" class="switch" id="${id}" ${f.checked ? 'checked' : ''}>`;
+  } else if (f.opts) {
+    ctl = `<select id="${id}">${f.opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select>`;
+  } else if (f.area) {
+    ctl = `<textarea id="${id}" rows="3" maxlength="1023" spellcheck="false"></textarea><span class="count" id="${id}-n">0/1023</span>`;
+  } else {
+    ctl = `<input type="${f.itype || 'text'}" id="${id}" value="${esc(f.value || '')}" ${f.list ? `list="pu-dl-${f.list}"` : ''}
+      ${f.num ? 'inputmode="numeric"' : ''} placeholder="${esc(f.ph || '')}" autocomplete="${f.itype === 'password' ? 'new-password' : 'off'}" spellcheck="false">${
+      f.hint ? `<span class="hint2">${esc(f.hint)}</span>` : ''}`;
   }
-  return `<label class="${cls}" data-k="${f.k}">${lbl}<input type="text" id="${id}" value="${esc(f.value || '')}"
-    ${f.list ? `list="pu-dl-${f.list}"` : ''} ${f.num ? 'inputmode="numeric"' : ''} placeholder="${esc(f.ph || '')}" autocomplete="off" spellcheck="false"></label>`;
+  return `<div class="prow" data-k="${f.k}">${lbl}<div class="pctl">${ctl}</div></div>`;
+}
+
+// Value of a select, text input or segmented control.
+function ctlVal(k, p = 'pu') {
+  const el = $(`#${p}-${k}`);
+  return el ? (el.dataset.seg != null ? el.dataset.v : el.value) : '';
 }
 
 function renderPushForm() {
-  $('#puForm').innerHTML = (PUSH_FIELDS[pu.type] || []).map(fieldHtml).join('');
+  closePick();
+  pu.newObjs = [];
+  pu.editing = null;
+  $('#puForm').innerHTML = `<div class="ptitle">New ${esc(pu.types[pu.type] || 'object')}</div>`
+    + (PUSH_FIELDS[pu.type] || []).map((f) => fieldHtml(f)).join('');
   $('#puUpdate').parentElement.lastChild.textContent = pu.type === 'policy'
     ? ' Update the policy if one with this name exists' : ' Update the object if it already exists';
+  // A global object goes once to each firewall: the VDOM ticks say what it may access.
+  $('#puVdomL').textContent = pu.global.includes(pu.type) ? 'VDOM access (ignored for super_admin)' : 'VDOMs';
+  renderVdomPicker();
   applyWhen();
   clearPlan();
+  loadExisting();
 }
 
-function applyWhen() {
-  for (const f of PUSH_FIELDS[pu.type] || []) {
+function applyWhen(root = $('#puForm'), type = pu.type, p = 'pu') {
+  for (const f of PUSH_FIELDS[type] || []) {
     if (!f.when) continue;
     const [k, v] = f.when;
-    $('#puForm').querySelector(`[data-k="${f.k}"]`).hidden = $(`#pu-${k}`).value !== v;
+    root.querySelector(`[data-k="${f.k}"]`).hidden = ctlVal(k, p) !== v;
+  }
+  if (p !== 'pu') return;
+  // As in FortiOS: a deny policy logs violations (on / off), an accept policy picks what to log.
+  const log = $('#pu-logtraffic');
+  if (log) {
+    const deny = ctlVal('action') === 'deny';
+    $('#pu-logtraffic-l').textContent = deny ? 'Log Violation Traffic' : 'Log Allowed Traffic';
+    $('#pu-logtraffic-mode').hidden = deny || !log.checked;
   }
 }
 
@@ -2454,71 +2635,409 @@ $('#puTypes').onkeydown = (e) => {
   next.click();
 };
 
-// ----- chips (lists of object names) -----
-function addChip(input) {
-  const box = input.closest('.chips');
-  for (const v of input.value.split(',').map((x) => x.trim()).filter(Boolean)) {
-    if ([...box.querySelectorAll('.chip')].some((c) => c.dataset.v === v)) continue;
-    input.insertAdjacentHTML('beforebegin',
-      `<span class="chip" data-v="${esc(v)}"><span>${esc(v)}</span><button type="button" aria-label="Remove ${esc(v)}" title="Remove">×</button></span>`);
+// ----- what the firewalls have today (administrators): list + edit -----
+const exKey = (fw) => `${pu.type}|${fw.id}`;
+
+async function loadExisting(force) {
+  const type = pu.type;
+  if (!pu.listable.includes(type)) return renderExisting();
+  const todo = fws.list.filter((f) => pu.selected.has(f.id) && (force || !pu.existing.has(exKey(f))));
+  for (const f of todo) pu.existing.set(exKey(f), { loading: true });
+  renderExisting();
+  await Promise.all(todo.map(async (f) => {
+    let res;
+    try { res = await api('GET', `/api/firewalls/${encodeURIComponent(f.id)}/existing?type=${type}`); } catch (err) { res = { error: err.message }; }
+    pu.existing.set(`${type}|${f.id}`, res);
+  }));
+  if (todo.length) renderExisting();
+}
+
+// One row per name; entries: what each ticked firewall has under that name.
+function existingRows() {
+  const picked = fws.list.filter((f) => pu.selected.has(f.id));
+  const rows = new Map();
+  for (const f of picked) {
+    for (const d of pu.existing.get(exKey(f))?.items || []) {
+      if (!rows.has(d.name)) rows.set(d.name, []);
+      rows.get(d.name).push({ fw: f, data: d });
+    }
   }
-  input.value = '';
+  return { picked, rows: [...rows.entries()].sort((a, b) => collator.compare(a[0], b[0])) };
+}
+
+function renderExisting() {
+  const el = $('#puExisting');
+  el.hidden = !pu.listable.includes(pu.type);
+  if (el.hidden) return;
+  const label = pu.types[pu.type];
+  const { picked, rows } = existingRows();
+  const states = picked.map((f) => ({ f, ...pu.existing.get(exKey(f)) }));
+  const notes = states.filter((x) => x.error).map((x) => `<div class="err">Could not read from ${esc(x.f.name)}: ${esc(x.error)}</div>`);
+  if (states.some((x) => x.loading)) notes.push('<div class="muted">Reading from the firewalls…</div>');
+  const same = (list) => new Set(list.map((x) => JSON.stringify(x.data))).size === 1;
+  const body = rows.map(([name, list]) => {
+    const d = list[0].data;
+    return `<tr class="${pu.editing === name ? 'editing' : ''}">
+      <td><b>${esc(name)}</b></td>
+      <td>${d.kind === 'remote' ? `Remote · ${esc(d['remote-group'])}${d.wildcard ? ' (all users)' : ''}` : 'Local'}</td>
+      <td>${esc(d.accprofile)}</td>
+      <td>${d.trusthost ? esc(d.trusthost) : '<span class="muted">Any address</span>'}</td>
+      <td class="mono">${esc(d.vdoms.join(', '))}</td>
+      ${picked.length > 1 ? `<td title="${esc(list.map((x) => x.fw.name).join(', '))}">${list.length}/${picked.length}${same(list) ? '' : ' <span class="pill warn">differs</span>'}</td>` : ''}
+      <td><span class="btns"><button type="button" class="small" data-edit="${esc(name)}">Edit</button><button type="button" class="small danger" data-del="${esc(name)}"
+        ${pu.enabled ? '' : 'disabled title="Pushing is disabled on the server (ENABLE_PUSH=1)"'}>Delete</button></span></td></tr>`;
+  }).join('');
+  el.innerHTML = `<div class="exhead"><span>${esc(label)}s on ${picked.length === 1 ? esc(picked[0].name) : 'the ticked firewalls'}</span>
+      <span class="btns"><button type="button" class="small" data-new>+ New</button><button type="button" class="small ghost" data-reload ${picked.length ? '' : 'disabled'}>Reload</button></span></div>
+    ${!picked.length ? '<div class="muted">Tick a firewall under Target to see what it has.</div>' : notes.join('')}
+    ${body ? `<div class="wrap"><table><thead><tr><th scope="col">Username</th><th scope="col">Type</th><th scope="col">Profile</th><th scope="col">Trusted hosts</th>
+      <th scope="col">VDOMs</th>${picked.length > 1 ? '<th scope="col">On</th>' : ''}<th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>${body}</tbody></table></div>` : ''}`;
+}
+
+// Loads an entry into the form. The name is the key, so it cannot be changed here.
+function editExisting(name) {
+  const hit = existingRows().rows.find(([n]) => n === name);
+  if (!hit) return;
+  const { data } = hit[1][0];
+  renderPushForm();
+  pu.editing = name;
+  for (const f of PUSH_FIELDS[pu.type]) {
+    if (f.section || !(f.k in data)) continue;
+    const el = $(`#pu-${f.k}`);
+    if (f.chips) {
+      const box = $('#puForm').querySelector(`[data-chips="${f.k}"]`);
+      box.querySelectorAll('.chip').forEach((c) => c.remove());
+      for (const v of [].concat(data[f.k]).filter(Boolean)) toggleEntry(box, v);
+    } else if (f.check) el.checked = !!data[f.k];
+    else el.value = data[f.k];
+  }
+  $('#pu-name').readOnly = true;
+  $('#puForm .ptitle').textContent = `Edit ${pu.types[pu.type]} “${name}”`;
+  $('#puUpdate').checked = true;
+  // The ticked VDOMs are written as the account's VDOM access: start from what it has.
+  if (data.vdoms?.length) pu.vdomSel = new Set(data.vdoms);
+  applyWhen();
+  renderPushTargets();
+  renderExisting();
+  $('#puForm').scrollIntoView({ block: 'nearest' });
+}
+
+// Deletes an entry from every ticked firewall that has it.
+function deleteExisting(name, btn) {
+  const on = existingRows().rows.find(([n]) => n === name)?.[1].map((x) => x.fw) || [];
+  if (!on.length) return;
+  const label = pu.types[pu.type];
+  if (!confirm(`Delete ${label.toLowerCase()} "${name}" from ${on.map((f) => f.name).join(', ')}?\n\nThis changes the live configuration and cannot be undone here.`)) return;
+  return busy(btn, async () => {
+    try {
+      const { results } = await api('POST', '/api/push/delete', { firewalls: on.map((f) => f.id), type: pu.type, name });
+      const failed = results.filter((x) => !x.ok);
+      pushMsg(!failed.length, `Deleted “${esc(name)}” from ${results.length - failed.length} of ${plural(results.length, 'firewall')}.`
+        + failed.map((x) => `<br><b>${esc(x.firewall)}</b>: ${esc(x.error)}`).join(''));
+    } catch (err) {
+      pushMsg(false, esc(err.message));
+    }
+    $('#puPlan').hidden = true;
+    if (pu.editing === name) { $('#puUpdate').checked = false; renderPushForm(); }
+    loadExisting(true);
+    loadPushHistory();
+  });
+}
+
+$('#puExisting').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.edit != null) editExisting(b.dataset.edit);
+  else if (b.dataset.del != null) deleteExisting(b.dataset.del, b);
+  else if (b.dataset.new != null) { $('#puUpdate').checked = false; renderPushForm(); $('#pu-name').focus(); }
+  else if (b.dataset.reload != null) loadExisting(true);
+};
+
+// ----- entries (lists of object names) + the Select Entries panel -----
+const entryNames = (box) => [...box.querySelectorAll('.chip')].map((c) => c.dataset.v);
+
+const chipHtml = (src, v) => `<span class="chip" data-v="${esc(v)}">${objIcon(entryKind(src, v))}<span>${esc(v)}</span>${
+  newObj(src, v) ? '<i class="tag-new">new</i>' : ''}<button type="button" aria-label="Remove ${esc(v)}" title="Remove">×</button></span>`;
+
+function toggleEntry(box, v) {
+  const chip = [...box.querySelectorAll('.chip')].find((c) => c.dataset.v === v);
+  if (chip) chip.remove();
+  else {
+    // A single-entry box (the schedule) swaps its entry.
+    if (box.dataset.single != null) box.querySelectorAll('.chip').forEach((c) => c.remove());
+    box.querySelector('.addent').insertAdjacentHTML('beforebegin', chipHtml(box.dataset.src, v));
+  }
   syncPushBtn();
 }
-$('#puForm').addEventListener('keydown', (e) => {
-  const input = e.target.closest('.chips input');
-  if (input && (e.key === 'Enter' || e.key === ',')) {
-    e.preventDefault();
-    addChip(input);
-  } else if (input && e.key === 'Backspace' && !input.value && input.previousElementSibling) {
-    input.previousElementSibling.remove();
-    syncPushBtn();
-  } else if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
-    e.preventDefault();
-    $('#puPreview').click();
+
+// New objects the form really uses: named in one of its entry boxes, or a member of one that is.
+function usedNewObjs() {
+  const out = [];
+  const visit = (src, list) => {
+    for (const v of list || []) {
+      const o = newObj(src, v);
+      if (!o || out.includes(o)) continue;
+      out.push(o);
+      visit(src, o.data.member);
+    }
+  };
+  for (const box of document.querySelectorAll('#puForm .entries')) visit(box.dataset.src, entryNames(box));
+  return out;
+}
+
+// The panel lists the entries of `box`. `form` is set while a new object is being defined in
+// it; `sub` is that form's Members box while its entries are being picked.
+const pick = { box: null, active: 0, form: null, sub: null };
+const PICK_MAX = 300;  // rows per group; the search narrows it down
+const listBox = () => pick.sub || pick.box;
+
+function openPick(box) {
+  if (box.closest('#puPick')) {
+    pick.sub = box;
+  } else {
+    if (pick.box === box && !pick.form) return $('#puPickQ').focus();
+    closePick(false);
+    pick.box = box;
+    box.classList.add('open');
+    $('#puPick').hidden = false;
   }
-});
-// Picking a datalist entry adds it straight away (no inputType on a datalist pick).
-$('#puForm').addEventListener('input', (e) => {
-  const input = e.target.closest('.chips input');
-  if (input && (!e.inputType || e.inputType === 'insertReplacementText')) addChip(input);
-});
-$('#puForm').addEventListener('focusout', (e) => {
-  const input = e.target.closest('.chips input');
-  if (input?.value.trim()) addChip(input);
-});
-$('#puForm').addEventListener('click', (e) => {
-  const rm = e.target.closest('.chip button');
-  if (rm) {
-    const box = rm.closest('.chips');
-    rm.closest('.chip').remove();
-    box.querySelector('input').focus();
-    return syncPushBtn();
+  pick.active = 0;
+  $('#puPickQ').value = '';
+  renderPick();
+  $('#puPickQ').focus();
+}
+
+function closePick(refocus = true) {
+  if (!pick.box) return;
+  const box = pick.box;
+  Object.assign(pick, { box: null, form: null, sub: null });
+  $('#puPickForm').innerHTML = '';
+  box.classList.remove('open');
+  $('#puPick').hidden = true;
+  if (refocus && box.isConnected) box.querySelector('.addent').focus();
+}
+
+// One step back: members list -> new object form -> entry list -> closed.
+function pickBack() {
+  if (pick.sub) {
+    const box = pick.sub;
+    pick.sub = null;
+    renderPick();
+    box.querySelector('.addent').focus();
+  } else if (pick.form) {
+    pick.form = null;
+    $('#puPickForm').innerHTML = '';
+    renderPick();
+    $('#puPickQ').focus();
+  } else closePick();
+}
+
+function startCreate(type) {
+  const q = $('#puPickQ').value.trim();
+  pick.form = { type };
+  $('#puPickForm').innerHTML = PUSH_FIELDS[type].map((f) => fieldHtml(f, 'pk')).join('');
+  applyWhen($('#puPickForm'), type, 'pk');
+  // What was typed in the search becomes the name (and the subnet, when it is one).
+  $('#pk-name').value = q;
+  if (type === 'address' && /^\d{1,3}(\.\d{1,3}){3}(\/\d{1,2})?$/.test(q)) $('#pk-subnet').value = q;
+  $('#puPickQ').value = '';
+  $('#puPickMsg').hidden = true;
+  renderPick();
+  $('#pk-name').focus();
+}
+
+async function pickAdd() {
+  const { type } = pick.form;
+  const src = FAMILY[type];
+  const data = objData($('#puPickForm'), type, 'pk');
+  try {
+    if ((pu.cur?.groups?.[src] || []).some(([, list]) => list.includes(data.name))) {
+      throw new Error(`"${data.name}" already exists on the firewall. Pick it from the list instead.`);
+    }
+    await api('POST', '/api/push/validate', { type, data });
+  } catch (err) {
+    $('#puPickMsg').hidden = false;
+    return setMsg($('#puPickMsg'), false, esc(err.message));
   }
-  if (e.target.classList.contains('chips')) e.target.querySelector('input').focus();
+  pu.newObjs = pu.newObjs.filter((o) => o !== newObj(src, data.name));
+  pu.newObjs.push({ type, data });
+  if (!entryNames(pick.box).includes(data.name)) toggleEntry(pick.box, data.name);
+  if (pick.box.dataset.single != null) return closePick();
+  pick.form = null;
+  $('#puPickForm').innerHTML = '';
+  renderPick();
+  syncPushBtn();
+  $('#puPickQ').focus();
+}
+
+function renderPick() {
+  if (!pick.box) return;
+  const box = listBox();
+  const src = box.dataset.src;
+  const inForm = !!pick.form && !pick.sub;
+  $('#puPickT').innerHTML = inForm ? `New ${esc(pu.types[pick.form.type])}`
+    : `Select Entries <span class="for">· ${esc(box.dataset.label)}</span>`;
+  $('#puPickBack').hidden = !pick.form;
+  $('.pick-q').hidden = $('#puPickList').hidden = inForm;
+  $('#puPickForm').hidden = $('#puPickAdd').hidden = !inForm;
+  if (!inForm) $('#puPickMsg').hidden = true;
+  $('#puPickClose').textContent = inForm ? 'Cancel' : pick.sub ? 'Done' : 'Close';
+  // New objects can be defined from the first list only (not while defining one).
+  const types = pick.form ? [] : CREATABLE[src] || [];
+  $('#puPickNew').hidden = !types.length;
+  $('#puPickNew').innerHTML = types.length ? `Create ${types.map((t) => `<button type="button" class="small" data-new="${t}">+ ${esc(pu.types[t])}</button>`).join('')}` : '';
+  if (inForm) {
+    $('#puPickNote').textContent = 'Created with the push, where it is missing.';
+    return;
+  }
+
+  const q = $('#puPickQ').value.trim();
+  const ql = q.toLowerCase();
+  const match = (x) => !ql || x.toLowerCase().includes(ql);
+  const sel = new Set(entryNames(box));
+  const groups = pu.cur?.groups?.[src] || [];
+  let n = 0;
+  const opt = (v, kind, inner) => `<div class="opt" role="option" id="pko-${n++}" data-v="${esc(v)}" aria-selected="${sel.has(v)}">${objIcon(kind)}${inner}</div>`;
+  const group = (label, rows, total) => `<div role="group" aria-label="${esc(label)}"><div class="pick-gh">${esc(label)} (${total})</div>${rows}</div>`;
+  const fresh = pu.newObjs.filter((o) => FAMILY[o.type] === src);
+  const all = new Set([...groups.flatMap(([, list]) => list), ...fresh.map((o) => o.data.name)]);
+  let html = '';
+  const freshHits = fresh.filter((o) => match(o.data.name));
+  if (freshHits.length) {
+    html += group('New', freshHits.map((o) => opt(o.data.name, NEW_KIND[o.type], `<span>${esc(o.data.name)}</span><i class="tag-new">new</i>`)).join(''), freshHits.length);
+  }
+  html += groups.map(([label, list]) => {
+    const hits = list.filter(match);
+    if (!hits.length) return '';
+    return group(label, hits.slice(0, PICK_MAX).map((x) => opt(x, OBJ_KIND[label] || 'other', `<span>${esc(x)}</span>`)).join('')
+      + (hits.length > PICK_MAX ? `<div class="more">${hits.length - PICK_MAX} more — search to narrow down.</div>` : ''), hits.length);
+  }).join('');
+  // Names already added that the first firewall does not have stay visible (and removable).
+  const extra = [...sel].filter((v) => !all.has(v) && v !== q && match(v));
+  if (extra.length) html += group('Typed', extra.map((x) => opt(x, 'other', `<span>${esc(x)}</span>`)).join(''), extra.length);
+  if (q && !all.has(q)) html += opt(q, 'other', `<span>Use “${esc(q)}” as it is</span>`);
+  if (!n) {
+    html = `<div class="empty">${!pu.selected.size ? 'Tick a firewall under Target to list its objects, or type a name and press Enter.'
+      : !pu.cur ? 'Object names are not loaded (yet). Type a name and press Enter.' : 'Nothing to pick here. Type a name and press Enter.'}</div>`;
+  }
+  $('#puPickList').innerHTML = html;
+  pick.active = Math.max(0, Math.min(pick.active, n - 1));
+  markPick(false);
+  const fw = fws.list.find((x) => x.id === pushTargets()[0]?.firewall);
+  $('#puPickNote').textContent = `${sel.size} selected${fw && pu.cur ? ` · names from ${fw.name}` : ''}`;
+}
+
+function markPick(scroll = true) {
+  const opts = [...document.querySelectorAll('#puPickList .opt')];
+  opts.forEach((o, i) => o.classList.toggle('active', i === pick.active));
+  const cur = opts[pick.active];
+  if (cur) $('#puPickQ').setAttribute('aria-activedescendant', cur.id); else $('#puPickQ').removeAttribute('aria-activedescendant');
+  if (cur && scroll) cur.scrollIntoView({ block: 'nearest' });
+}
+
+function pickToggle(o) {
+  const typed = o.dataset.v === $('#puPickQ').value.trim();
+  const box = listBox();
+  toggleEntry(box, o.dataset.v);
+  // Picking the one entry of a single-entry box is done: step back.
+  if (box.dataset.single != null && entryNames(box).length) return pickBack();
+  if (typed) $('#puPickQ').value = '';
+  renderPick();
+}
+
+$('#puPickQ').oninput = () => { pick.active = 0; renderPick(); };
+$('#puPickQ').onkeydown = (e) => {
+  const opts = [...document.querySelectorAll('#puPickList .opt')];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!opts.length) return;
+    pick.active = (pick.active + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+    markPick();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (opts[pick.active]) pickToggle(opts[pick.active]);
+  }
+};
+$('#puPickList').onclick = (e) => {
+  const o = e.target.closest('.opt');
+  if (!o) return;
+  pick.active = Number(o.id.slice(4));
+  pickToggle(o);
+  $('#puPickQ').focus();
+};
+$('#puPick').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.stopPropagation(); pickBack(); }
 });
-$('#puForm').addEventListener('change', (e) => {
-  if (e.target.tagName === 'SELECT') applyWhen();
+$('#puPickX').onclick = () => closePick();
+$('#puPickBack').onclick = $('#puPickClose').onclick = pickBack;
+$('#puPickAdd').onclick = (e) => busy(e.target, pickAdd);
+$('#puPickNew').onclick = (e) => {
+  const b = e.target.closest('button[data-new]');
+  if (b) startCreate(b.dataset.new);
+};
+// A click anywhere else closes the panel (the entry boxes switch it to their own list).
+document.addEventListener('mousedown', (e) => {
+  if (pick.box && !e.target.closest('#puPick, .entries')) closePick(false);
 });
 
-function pushData() {
+// Shared by the main form and the new-object form in the panel.
+function formClick(e) {
+  const rm = e.target.closest('.chip button');
+  if (rm) {
+    rm.closest('.chip').remove();
+    renderPick();
+    return syncPushBtn();
+  }
+  const opt = e.target.closest('[data-seg] button');
+  if (opt) {
+    const seg = opt.parentElement;
+    seg.dataset.v = opt.dataset.v;
+    for (const b of seg.children) b.setAttribute('aria-checked', b === opt);
+    applyWhen();
+    return syncPushBtn();
+  }
+  const box = e.target.closest('.entries');
+  if (box) openPick(box);
+}
+const formCount = (e) => {
+  if (e.target.tagName === 'TEXTAREA') $(`#${e.target.id}-n`).textContent = `${e.target.value.length}/1023`;
+};
+const onEnter = (form, fn) => form.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type === 'text') {
+    e.preventDefault();
+    fn();
+  }
+});
+onEnter($('#puForm'), () => $('#puPreview').click());
+onEnter($('#puPickForm'), () => $('#puPickAdd').click());
+$('#puForm').addEventListener('click', formClick);
+$('#puPickForm').addEventListener('click', formClick);
+$('#puForm').addEventListener('change', () => applyWhen());
+$('#puPickForm').addEventListener('change', () => pick.form && applyWhen($('#puPickForm'), pick.form.type, 'pk'));
+$('#puForm').addEventListener('input', formCount);
+$('#puPickForm').addEventListener('input', formCount);
+
+function objData(root, type, p) {
   const d = {};
-  for (const f of PUSH_FIELDS[pu.type] || []) {
-    const wrap = $('#puForm').querySelector(`[data-k="${f.k}"]`);
+  for (const f of PUSH_FIELDS[type] || []) {
+    if (f.section) continue;
+    const wrap = root.querySelector(`[data-k="${f.k}"]`);
     // The firewall list can load before the form is rendered (push status still pending).
     if (!wrap || wrap.hidden) continue;
-    if (f.chips) {
-      const pending = wrap.querySelector('input').value.split(',').map((x) => x.trim()).filter(Boolean);
-      d[f.k] = [...wrap.querySelectorAll('.chip')].map((c) => c.dataset.v).concat(pending);
-    } else if (f.check) d[f.k] = $(`#pu-${f.k}`).checked;
-    else d[f.k] = $(`#pu-${f.k}`).value.trim();
+    if (f.chips) d[f.k] = f.single ? entryNames(wrap)[0] || '' : entryNames(wrap);
+    else if (f.days) d[f.k] = [...wrap.querySelectorAll('input[data-day]:checked')].map((c) => c.dataset.day);
+    else if (f.log) d[f.k] = !$(`#${p}-${f.k}`).checked ? 'disable' : ctlVal('action', p) === 'deny' ? 'all' : ctlVal(`${f.k}-mode`, p);
+    else if (f.check) d[f.k] = $(`#${p}-${f.k}`).checked;
+    else if (f.confirm) continue;  // checked in the browser, never sent
+    else d[f.k] = f.raw ? ctlVal(f.k, p) : ctlVal(f.k, p).trim();
   }
   return d;
 }
+const pushData = () => objData($('#puForm'), pu.type, 'pu');
 
 const pushRequest = () => ({
   targets: pushTargets(),
-  type: pu.type, data: pushData(), update: $('#puUpdate').checked,
+  type: pu.type, data: pushData(), update: $('#puUpdate').checked, objects: usedNewObjs(),
 });
 
 // ----- preview + push -----
@@ -2526,6 +3045,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // "3 firewalls", or "5 VDOMs on 3 firewalls" when some get more than one VDOM.
 function targetsText(targets) {
   const fw = new Set(targets.map((t) => t.firewall)).size;
+  if (pu.global.includes(pu.type)) return plural(fw, 'firewall');
   return targets.length === fw ? plural(fw, 'firewall') : `${plural(targets.length, 'VDOM')} on ${plural(fw, 'firewall')}`;
 }
 // Push needs a preview of exactly the current request; any change asks for a new preview.
@@ -2566,6 +3086,15 @@ function resultCell(r, dryRun, type) {
   return `<span class="pill ok">${r.action === 'update' ? 'Updated' : 'Created'}</span>${id}${r.moved ? ` · ${esc(r.moved)}` : ''}`;
 }
 
+// The objects created (or found) on a target before the main one.
+function depsHtml(x, dryRun) {
+  if (!x.objects?.length) return '';
+  const pill = (o) => (!o.ok ? `<span class="pill err">Failed</span> <span class="err">${esc(o.error)}</span>`
+    : o.action === 'exists' ? `<span class="pill">${dryRun ? 'Exists, used as it is' : 'Already existed'}</span>`
+    : `<span class="pill ${dryRun ? 'info' : 'ok'}">${dryRun ? 'Will create' : 'Created'}</span>`);
+  return `<ul class="deps">${x.objects.map((o) => `<li><span class="tag">${esc(pu.types[o.type] || o.type)}</span> ${esc(o.name)} ${pill(o)}</li>`).join('')}</ul>`;
+}
+
 function renderPlan(r, dryRun) {
   const p = r.payload;
   const req = (method, path) => `${method} /api/v2/cmdb/${path}?vdom=<vdom>`;
@@ -2576,10 +3105,11 @@ function renderPlan(r, dryRun) {
     <div class="wrap"><table>
       <thead><tr><th scope="col">Firewall</th><th scope="col">VDOM</th><th scope="col">${dryRun ? 'Plan' : 'Result'}</th></tr></thead>
       <tbody>${r.results.map((x) => `<tr><td class="fwname"><b>${esc(x.firewall)}</b><span class="mono">${esc(x.host)}</span></td>
-        <td class="mono">${esc(x.vdom)}</td><td>${resultCell(x, dryRun, r.type)}</td></tr>`).join('')}</tbody>
+        <td class="mono">${esc(x.vdom)}</td><td>${depsHtml(x, dryRun)}${resultCell(x, dryRun, r.type)}</td></tr>`).join('')}</tbody>
     </table></div>
     <details ${dryRun ? 'open' : ''}><summary class="muted">API request</summary>
-<pre class="payload">${esc(`${req('POST', p.path)}    (new)\n${req('PUT', target)}    (existing)\n\n${JSON.stringify(p.body, null, 2)}`
+<pre class="payload">${esc((r.objects || []).map((o) => `${req('POST', o.payload.path)}    (where missing)\n\n${JSON.stringify(o.payload.body, null, 2)}\n\n`).join('')
+  + `${req('POST', p.path)}    (new)\n${req('PUT', target)}    (existing)\n\n${JSON.stringify(p.body, null, 2)}`
   + (p.before != null ? `\n\nthen: PUT /api/v2/cmdb/firewall/policy/<id>?vdom=<vdom>&action=move&before=${p.before}` : ''))}</pre>
     </details>`;
 }
@@ -2591,6 +3121,8 @@ function pushMsg(ok, html) {
 
 $('#puPreview').onclick = (e) => busy(e.target, async () => {
   const body = pushRequest();
+  const twice = (PUSH_FIELDS[pu.type] || []).find((f) => f.confirm && ctlVal(f.k) !== ctlVal(f.confirm));
+  if (twice) return pushMsg(false, 'The two passwords are not the same.');
   $('#puMsg').hidden = false;
   $('#puMsg').className = 'msg'; $('#puMsg').textContent = 'Checking the firewalls…';
   try {
@@ -2611,7 +3143,7 @@ $('#puPreview').onclick = (e) => busy(e.target, async () => {
 
 $('#puGo').onclick = (e) => {
   const body = pushRequest();
-  const what = `${pu.types[body.type]}${body.data.name ? ` "${body.data.name}"` : ''}`;
+  const what = `${pu.types[body.type]}${body.data.name ? ` "${body.data.name}"` : ''}${body.objects.length ? ` and ${plural(body.objects.length, 'new object')}` : ''}`;
   const vdoms = [...new Set(body.targets.map((t) => t.vdom))].join(', ');
   if (!confirm(`Push ${what} to ${targetsText(body.targets)} (VDOM ${vdoms})?\n\nThis changes the live configuration.`)) return;
   return busy(e.target, async () => {
@@ -2622,6 +3154,14 @@ $('#puGo').onclick = (e) => {
       const ok = r.results.filter((x) => x.ok).length;
       pushMsg(ok === r.results.length, `Pushed to ${ok} of ${plural(r.results.length, 'firewall/VDOM target')}.`
         + ' Take a new backup to see the change in the inventory.');
+      // Secrets do not stay in the page after a push.
+      if (ok === r.results.length) document.querySelectorAll('#puForm input[type=password]').forEach((i) => { i.value = ''; });
+      // What was new now exists on the firewalls.
+      if (ok === r.results.length) {
+        pu.newObjs = [];
+        document.querySelectorAll('#puForm .tag-new').forEach((t) => t.remove());
+      }
+      loadExisting(true);
       // Names on the devices changed: refresh suggestions next time.
       pu.sugg.clear();
       loadSuggestions();
@@ -2644,8 +3184,8 @@ async function loadPushHistory() {
       <td class="fwname"><b>${esc(h.firewall)}</b><span class="mono">${esc(h.host)}</span></td>
       <td class="mono">${esc(h.vdom)}</td>
       <td><span class="tag">${esc(pu.types[h.type] || h.type)}</span> ${esc(h.name ?? (h.key != null ? `#${h.key}` : ''))}</td>
-      <td>${h.ok ? `<span class="pill ok">${h.action === 'update' ? 'Updated' : 'Created'}</span>${h.type === 'policy' && h.key != null ? ` ID ${esc(h.key)}` : ''}`
-        : `<span class="pill err">Failed</span> <span class="err">${esc(h.error)}</span>`}</td>
+      <td>${h.ok ? `<span class="pill ok">${{ update: 'Updated', delete: 'Deleted' }[h.action] || 'Created'}</span>${h.type === 'policy' && h.key != null ? ` ID ${esc(h.key)}` : ''}`
+        : `<span class="pill err">${h.action === 'delete' ? 'Delete failed' : 'Failed'}</span> <span class="err">${esc(h.error)}</span>`}</td>
     </tr>`).join('') : '<tr><td colspan="5" class="empty">Nothing pushed yet.</td></tr>';
 }
 
