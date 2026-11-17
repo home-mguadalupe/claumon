@@ -86,6 +86,7 @@ const params = new URLSearchParams({ framework: q.get('framework') || 'cis' });
 if (q.get('file')) params.set('file', q.get('file'));
 
 fetch(`/api/compliance?${params}`).then(async (res) => {
+  if (res.status === 401) return location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
   const r = await res.json();
   if (!res.ok) throw new Error(r.error || res.statusText);
   render(r);

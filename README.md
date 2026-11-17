@@ -84,6 +84,8 @@ existing databases pick up new tables automatically.
 | `PGPASSWORD`   | `fortiinv`  | Password for the Postgres container in `docker-compose.yml`               |
 | `FGT_MASTER_KEY` | *(unset)* | Master key that encrypts the stored API keys (32 bytes, base64)          |
 | `FGT_MASTER_KEY_FILE` | `data/master.key` | Where the master key is read from / generated when `FGT_MASTER_KEY` is unset |
+| `AUTH_USER`    | `admin`     | User name for the login                                                   |
+| `AUTH_PASSWORD` | *(unset)*  | Password for the login; when unset one is generated on first start (see Security) |
 | `ENABLE_PUSH`  | *(unset)*   | `1` allows the **Push** tab to change firewall configuration (see Security) |
 | `AUTO_BACKUP_HOURS` | `24`   | Back up every firewall automatically this often (`0` = off)               |
 | `AUTO_ROUTES_HOURS` | `1`    | Refresh every firewall's routing table this often (`0` = off; needs `DATABASE_URL`) |
@@ -314,6 +316,8 @@ Keyboard: `/` focuses the search box, `Esc` clears it.
 ```
 server.js            HTTP server and JSON API
 public/index.html    the whole web UI
+public/login.html    login form (/login)
+lib/auth.js          login: password check, sessions, failed-login lockout
 lib/fortigate.js     FortiGate REST API client (status, config backup, routing table)
 lib/routes.js        routing tables: pull from firewalls, store, look up
 lib/audit.js         security checks on a backup (Security tab)
@@ -342,6 +346,8 @@ backups/             backup files (*.conf) + device metadata (*.meta.json)
 
 | Method | Path                                         | Description                          |
 |--------|----------------------------------------------|--------------------------------------|
+| POST   | `/api/login`                                 | Log in: `{ user, password }`; sets the session cookie. Everything else answers `401` without it |
+| POST   | `/api/logout`                                | End the session                      |
 | GET    | `/api/firewalls`                             | List firewalls (without API keys)    |
 | POST   | `/api/firewalls`                             | Add a firewall                       |
 | DELETE | `/api/firewalls/:id`                         | Remove a firewall                    |
@@ -377,8 +383,17 @@ Sections: `interfaces`, `policies`, `addresses`, `addrgrps`, `services`, `servic
 
 ## Security
 
-- The app has **no authentication**. Keep the default `BIND=127.0.0.1`, or put it
-  behind a reverse proxy with authentication before exposing it.
+- **Login.** Every page and API call needs a session; there is one user and password.
+  - The user is `AUTH_USER` (default `admin`). Set the password with `AUTH_PASSWORD`. If it
+    is unset, a random password is generated on first start and **printed once** in the
+    server output (`docker compose logs app`); only its scrypt hash is kept, in
+    `data/auth.json`. Delete that file and restart to get a new one.
+  - Sessions live in memory: they end after 12 hours without activity, on **Log out**, and
+    when the server restarts. Five failed logins from one address lock it out for 15 minutes.
+  - The session cookie is `HttpOnly` and `SameSite=Strict`, and requests from other sites
+    are refused. There is no two-factor authentication.
+  - The app speaks plain HTTP, so on a network the password travels unencrypted. Keep the
+    default `BIND=127.0.0.1`, or put a reverse proxy with HTTPS in front before exposing it.
 - **API keys are encrypted at rest** with AES-256-GCM, in the `firewalls` table
   (database mode) or `data/firewalls.json` (file mode). The key is never sent to
   the browser, not even masked.
@@ -394,9 +409,8 @@ Sections: `interfaces`, `policies`, `addresses`, `addrgrps`, `services`, `servic
   - Anyone who has both the master key and the database (or who controls the
     running server) can decrypt the keys. Give the FortiGate API user a
     **read-only** profile and restrict its **trusted hosts** to this server.
-- **Pushing changes is off by default.** With `ENABLE_PUSH=1`, anyone who can reach the
-  UI can change firewall policies, so keep `BIND=127.0.0.1` or put authentication in
-  front of it. Pushing also needs a **read-write** API profile; limit it to Firewall
+- **Pushing changes is off by default.** With `ENABLE_PUSH=1`, anyone who is logged in
+  can change firewall policies. Pushing also needs a **read-write** API profile; limit it to Firewall
   configuration (and the VDOMs you manage), or keep read-only firewalls for backups only.
 - Backups contain the full configuration. `data/` and `backups/` are set to mode
   `0700`, files to `0600`, and both are git-ignored. Treat them as secrets.

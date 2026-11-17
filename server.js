@@ -13,6 +13,7 @@ const { audit, compare, CHECKS } = require('./lib/audit');
 const compliance = require('./lib/compliance');
 const mitigation = require('./lib/mitigation');
 const cve = require('./lib/cve');
+const auth = require('./lib/auth');
 // Inventory DB is optional: only loaded when DATABASE_URL is set.
 const inventory = process.env.DATABASE_URL ? require('./lib/inventory') : null;
 const iplookup = process.env.DATABASE_URL ? require('./lib/iplookup') : null;
@@ -20,7 +21,7 @@ const routes = process.env.DATABASE_URL ? require('./lib/routes') : null;
 
 const PORT = Number(process.env.PORT) || 5555;
 const BIND = process.env.BIND || '127.0.0.1';
-// Writing to firewalls is opt-in: the app has no authentication of its own.
+// Writing to firewalls is opt-in, on top of the login.
 const PUSH_ENABLED = process.env.ENABLE_PUSH === '1';
 const DATA_DIR = path.join(__dirname, 'data');
 const BACKUP_DIR = path.join(__dirname, 'backups');
@@ -121,6 +122,12 @@ function readJson(req) {
   });
 }
 
+// Pages are not cached, so the back button never shows one after logging out.
+function sendPage(res, file) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  fs.createReadStream(path.join(__dirname, 'public', file)).pipe(res);
+}
+
 const safeName = (s) => s.replace(/[^a-zA-Z0-9._-]/g, '_');
 
 // ---------- routes ----------
@@ -129,9 +136,48 @@ async function handle(req, res) {
   const p = url.pathname;
   const m = req.method;
 
+  // ---------- login ----------
+  // Everything below the login routes needs a session.
+  if (m !== 'GET' && m !== 'HEAD' && !auth.sameOrigin(req)) {
+    return send(res, 403, { error: 'Cross-site request refused' });
+  }
+
+  if (m === 'POST' && p === '/api/login') {
+    const b = await readJson(req);
+    const r = auth.login(req, b.user, b.password);
+    if (!r.cookie) {
+      if (r.retryAfter) res.setHeader('Retry-After', r.retryAfter);
+      return send(res, r.status, { error: r.error });
+    }
+    res.setHeader('Set-Cookie', r.cookie);
+    return send(res, 200, { ok: true });
+  }
+
+  if (m === 'POST' && p === '/api/logout') {
+    res.setHeader('Set-Cookie', auth.logout(req));
+    return send(res, 200, { ok: true });
+  }
+
+  const user = auth.user(req);
+
+  if (m === 'GET' && p === '/login') {
+    if (user) {
+      res.writeHead(302, { Location: '/' });
+      return res.end();
+    }
+    return sendPage(res, 'login.html');
+  }
+
+  if (!user) {
+    if (p.startsWith('/api/')) return send(res, 401, { error: 'Not logged in' });
+    // Pages send the browser to the login form, which comes back here afterwards.
+    const next = p === '/' ? '' : `?next=${encodeURIComponent(p + url.search)}`;
+    res.writeHead(302, { Location: `/login${next}` });
+    return res.end();
+  }
+
   if (m === 'GET' && (p === '/' || p === '/report')) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    return fs.createReadStream(path.join(__dirname, 'public', p === '/' ? 'index.html' : 'report.html')).pipe(res);
+    return sendPage(res, p === '/' ? 'index.html' : 'report.html');
   }
 
   if (m === 'GET' && p === '/api/firewalls') {
@@ -455,6 +501,7 @@ async function handle(req, res) {
 
 firewalls
   .init()
+  .then(() => auth.init())
   .then(() =>
     http
       .createServer((req, res) =>

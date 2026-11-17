@@ -57,6 +57,8 @@
   header nav .count { color:var(--muted); font-size:11.5px; font-weight:500; font-variant-numeric:tabular-nums; }
   .theme-btn { margin-left:auto; width:32px; padding:0; border-color:transparent; background:transparent; color:var(--muted); }
   .theme-btn:hover { color:var(--fg); }
+  .logout-btn { margin-left:-20px; width:32px; padding:0; border-color:transparent; background:transparent; color:var(--muted); }
+  .logout-btn:hover { color:var(--fg); }
   .theme-btn .sun, :root[data-theme="dark"] .theme-btn .moon { display:none; }
   :root[data-theme="dark"] .theme-btn .sun { display:block; }
 
@@ -513,6 +515,9 @@
     <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
     <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
   </button>
+  <button type="button" class="logout-btn" id="logoutBtn" aria-label="Log out" title="Log out">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4m0 0 4-4m-4 4h10"/></svg>
+  </button>
 </header>
 <main id="main" tabindex="-1">
 <div class="view" data-view="overview" hidden>
@@ -908,6 +913,11 @@ async function api(method, url, body, signal) {
     body: body ? JSON.stringify(body) : undefined,
     signal,
   });
+  if (res.status === 401) {
+    // The session ended (idle too long, or the server restarted): back to the login form.
+    location.href = '/login';
+    return new Promise(() => {});
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
@@ -952,6 +962,10 @@ const isDark = () => (document.documentElement.dataset.theme || (matchMedia('(pr
 const syncThemeBtn = () => {
   $('#themeBtn').setAttribute('aria-pressed', isDark());
   $('#themeBtn').title = isDark() ? 'Switch to light theme' : 'Switch to dark theme';
+};
+$('#logoutBtn').onclick = async () => {
+  await api('POST', '/api/logout');
+  location.href = '/login';
 };
 $('#themeBtn').onclick = () => {
   const t = isDark() ? 'light' : 'dark';

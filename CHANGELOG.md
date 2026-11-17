@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-16 — Login
+
+### New: login
+The UI and the API now need a user and password.
+
+- One user: `AUTH_USER` (default `admin`) with `AUTH_PASSWORD`. Without `AUTH_PASSWORD` a
+  random password is generated on first start, printed once in the server output and kept
+  only as a scrypt hash in `data/auth.json`.
+- Sessions are kept in memory (12 h idle limit, ended by **Log out** or a restart) in an
+  `HttpOnly`, `SameSite=Strict` cookie. Requests from other sites are refused.
+- Five failed logins from one address lock it out for 15 minutes.
+- `ENABLE_PUSH=1` is still needed to push changes.
+
 ## 2026-11-14 — CVEs
 
 ### New: CVEs tab

@@ -8,6 +8,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://fortiinv:${PGPASSWORD:-fortiinv}@postgres:5432/fortiinv
+      AUTH_USER: ${AUTH_USER:-}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-}
       ENABLE_PUSH: ${ENABLE_PUSH:-}
       FGT_MASTER_KEY: ${FGT_MASTER_KEY:-}
       AUTO_BACKUP_HOURS: ${AUTO_BACKUP_HOURS:-}
