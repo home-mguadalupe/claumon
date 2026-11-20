@@ -18,8 +18,7 @@ RUN mkdir -p data backups && chown node:node data backups && chmod 700 data back
 
 USER node
 
-# Inside the container the app must listen on all interfaces; docker-compose.yml
-# publishes the port on 127.0.0.1 only, so it is still not exposed on the network.
+# Listen on all interfaces; docker-compose.yml publishes the port on all host interfaces.
 ENV BIND=0.0.0.0 PORT=5555
 EXPOSE 5555
 VOLUME ["/app/data", "/app/backups"]

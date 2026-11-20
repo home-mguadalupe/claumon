@@ -20,7 +20,7 @@ const iplookup = process.env.DATABASE_URL ? require('./lib/iplookup') : null;
 const routes = process.env.DATABASE_URL ? require('./lib/routes') : null;
 
 const PORT = Number(process.env.PORT) || 5555;
-const BIND = process.env.BIND || '127.0.0.1';
+const BIND = process.env.BIND || '0.0.0.0';
 // Writing to firewalls is opt-in, on top of the login.
 const PUSH_ENABLED = process.env.ENABLE_PUSH === '1';
 const DATA_DIR = path.join(__dirname, 'data');

@@ -33,7 +33,7 @@ Runs the app and the inventory database together; only Docker is needed.
 docker compose up -d --build
 ```
 
-Open <http://127.0.0.1:5555>. The port is published on `127.0.0.1` only. Use
+Open <http://127.0.0.1:5555>. The port is published on all host interfaces. Use
 `PORT=8080 docker compose up -d` for another host port. Set `PGPASSWORD`,
 `ENABLE_PUSH` or `FGT_MASTER_KEY` in the shell or in a `.env` file next to
 `docker-compose.yml` (URL-safe characters only in `PGPASSWORD`).
@@ -79,7 +79,7 @@ existing databases pick up new tables automatically.
 | Variable       | Default     | Description                                                               |
 |----------------|-------------|---------------------------------------------------------------------------|
 | `PORT`         | `5555`      | HTTP port                                                                 |
-| `BIND`         | `127.0.0.1` | Listen address. Use `0.0.0.0` to expose it on the network (see Security). |
+| `BIND`         | `0.0.0.0`   | Listen address. Use `127.0.0.1` to keep it local only (see Security).     |
 | `DATABASE_URL` | *(unset)*   | PostgreSQL connection string; enables the inventory features              |
 | `PGPASSWORD`   | `fortiinv`  | Password for the Postgres container in `docker-compose.yml`               |
 | `FGT_MASTER_KEY` | *(unset)* | Master key that encrypts the stored API keys (32 bytes, base64)          |
@@ -424,8 +424,8 @@ Sections: `interfaces`, `policies`, `addresses`, `addrgrps`, `services`, `servic
     when the server restarts. Five failed logins from one address lock it out for 15 minutes.
   - The session cookie is `HttpOnly` and `SameSite=Strict`, and requests from other sites
     are refused. There is no two-factor authentication.
-  - The app speaks plain HTTP, so on a network the password travels unencrypted. Keep the
-    default `BIND=127.0.0.1`, or put a reverse proxy with HTTPS in front before exposing it.
+  - The app speaks plain HTTP, so on a network the password travels unencrypted. It listens on
+    `0.0.0.0` by default; set `BIND=127.0.0.1` to keep it local, or put a reverse proxy with HTTPS in front.
 - **API keys are encrypted at rest** with AES-256-GCM, in the `firewalls` table
   (database mode) or `data/firewalls.json` (file mode). The key is never sent to
   the browser, not even masked.
