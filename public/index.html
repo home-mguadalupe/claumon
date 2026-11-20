@@ -35,6 +35,8 @@
     --overlay:0 0 0 1px rgb(255 255 255 / .06), 0 12px 32px rgb(0 0 0 / .55);
   }
   * { box-sizing: border-box; }
+  /* Author display rules (button, .btns, flex rows) would otherwise beat the UA's [hidden] style. */
+  [hidden] { display:none !important; }
   body { margin:0; font:14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--fg); -webkit-font-smoothing:antialiased; }
   a { color:var(--link); text-underline-offset:2px; }
   :focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
@@ -84,6 +86,8 @@
   input:not([type=checkbox]):hover, select:hover { border-color:var(--muted); }
   input:not([type=checkbox]):focus, select:focus { outline:2px solid transparent; border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring); }
   input::placeholder { color:var(--muted); opacity:.75; }
+  /* Only after the user has left the field (or tried to submit), never on load or while typing. */
+  input:not([type=checkbox]):user-invalid:not(:focus) { border-color:var(--err); }
   select:disabled, input:disabled { opacity:.6; cursor:not-allowed; }
   input[type=checkbox] { width:15px; height:15px; margin:0; accent-color:var(--accent); cursor:pointer; flex:none; }
   label.check { display:flex; align-items:center; gap:8px; color:var(--fg); font-weight:400; font-size:13.5px; cursor:pointer; min-height:32px; }
@@ -98,6 +102,26 @@
   button.danger:hover { color:var(--err); border-color:var(--err); background:var(--err-soft); }
   button.small { height:28px; padding:0 9px; font-size:12.5px; }
   button:disabled { opacity:.45; cursor:default; }
+  button[aria-busy="true"] { cursor:progress; }
+  button[aria-busy="true"]::before { content:""; flex:none; width:11px; height:11px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .7s linear infinite; }
+  button[aria-busy="true"] > svg { display:none; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  button.danger-solid { background:var(--err); color:var(--accent-fg); border-color:var(--err); }
+  button.danger-solid:hover { background:var(--err); border-color:var(--err); filter:brightness(1.08); }
+
+  /* ---------- confirmation dialog (native modal: inert page, focus trap, Esc) ---------- */
+  dialog.confirm { width:min(440px, calc(100vw - 32px)); padding:20px 20px 16px; border:none; border-radius:var(--radius); background:var(--surface); color:var(--fg); box-shadow:var(--overlay); }
+  dialog.confirm[open] { opacity:1; transform:none; transition:opacity .14s ease-out, transform .14s ease-out; }
+  @starting-style { dialog.confirm[open] { opacity:0; transform:translateY(6px) scale(.98); } }
+  dialog.confirm h2 { margin:0 0 6px; font-size:16px; }
+  dialog.confirm p { margin:0 0 18px; color:var(--muted); white-space:pre-line; overflow-wrap:anywhere; }
+  dialog.confirm p[hidden] { display:none; }
+  dialog.confirm form { display:flex; justify-content:flex-end; gap:8px; }
+  dialog:modal { overscroll-behavior:contain; }
+  dialog::backdrop { background:rgb(0 0 0 / .45); overflow:hidden; overscroll-behavior:contain; }
+  dialog[open]::backdrop { opacity:1; transition:opacity .14s; }
+  @starting-style { dialog[open]::backdrop { opacity:0; } }
+
   table { width:100%; border-collapse:collapse; }
   th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
   th { padding-top:7px; padding-bottom:7px; font-size:12px; color:var(--muted); font-weight:500; white-space:nowrap; border-bottom-color:var(--line-strong); }
@@ -167,6 +191,7 @@
     content:""; width:4px; height:8px; margin:0 3px 2px 2px; border:solid var(--ok); border-width:0 1.75px 1.75px 0; transform:rotate(45deg); flex:none;
   }
   a.pill:hover { text-decoration:underline; }
+  .fwname { min-width:150px; }
   .fwname b { display:block; font-weight:600; }
   .fwname .mono { color:var(--muted); font-size:12px; }
   .age { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; color:var(--fg); }
@@ -458,7 +483,8 @@
 
   @media (max-width: 600px) {
     header { padding:0 16px; column-gap:12px; }
-    .theme-btn { order:1; }
+    .theme-btn, .logout-btn { order:1; }
+    .logout-btn { margin-left:-10px; }
     header nav { order:2; flex:1 1 100%; margin:0 -16px -1px; padding:0 6px; }
     header nav a { padding:10px 10px 9px; }
     header nav a.grp::before { top:12px; bottom:10px; }
@@ -956,6 +982,14 @@
 </div>
 
 </main>
+<dialog class="confirm" id="confirmDlg" aria-labelledby="cfTitle" aria-describedby="cfBody" closedby="any">
+  <h2 id="cfTitle"></h2>
+  <p id="cfBody"></p>
+  <form method="dialog">
+    <button value="cancel" autofocus>Cancel</button>
+    <button value="ok" id="cfOk" class="primary"></button>
+  </form>
+</dialog>
 
 <script>
 const $ = (s) => document.querySelector(s);
@@ -1012,9 +1046,34 @@ function setMsg(el, ok, html) {
   el.innerHTML = html;
 }
 
+// Disables the button while fn runs and shows a spinner in it. Disabling a focused button
+// drops focus to <body>; give it back so keyboard users don't lose their place.
 async function busy(btn, fn) {
+  const focused = document.activeElement === btn;
   btn.disabled = true;
-  try { await fn(); } finally { btn.disabled = false; }
+  btn.setAttribute('aria-busy', 'true');
+  try { await fn(); } finally {
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    if (focused && btn.isConnected && document.activeElement === document.body) btn.focus();
+  }
+}
+
+// In-page replacement for window.confirm(): resolves true only when the action button is used.
+// Esc, clicking outside and Cancel all resolve false. Focus starts on Cancel and returns to the invoker.
+function ask({ title, body = '', ok = 'Confirm', danger = false }) {
+  const d = $('#confirmDlg');
+  $('#cfTitle').textContent = title;
+  $('#cfBody').textContent = body;
+  $('#cfBody').hidden = !body;
+  $('#cfOk').textContent = ok;
+  $('#cfOk').className = danger ? 'danger-solid' : 'primary';
+  d.returnValue = '';
+  d.showModal();
+  return new Promise((resolve) => d.addEventListener('close', () => {
+    resolve(d.returnValue === 'ok');
+    d.returnValue = '';
+  }, { once: true }));
 }
 
 // Re-rendering with innerHTML drops keyboard focus; put it back on the element with the
@@ -1079,10 +1138,10 @@ function showView() {
     if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
-  document.title = `${view[0].toUpperCase() + view.slice(1)} · FortiGate Backup`;
+  const VIEW_TITLE = { iplookup: 'IP lookup', cves: 'CVEs' };
+  document.title = `${VIEW_TITLE[view] || view[0].toUpperCase() + view.slice(1)} · FortiGate Backup`;
   // Inventory tables and search results need more room.
   $('main').classList.toggle('wide', !['overview', 'firewalls', 'push'].includes(view));
-  document.title = view === 'iplookup' ? 'IP lookup · FortiGate Backup' : view === 'cves' ? 'CVEs · FortiGate Backup' : document.title;
   if (view === 'overview') applyOverview();
   if (view === 'inventory') applyInvState(params);
   if (view === 'backups') applySearchState(params);
@@ -1214,10 +1273,15 @@ async function loadFirewallNames() {
 }
 
 // refresh = false skips reloading inventory and backups (Back up all does that once at the end).
-function fwAction(btn, refresh = true) {
+async function fwAction(btn, refresh = true) {
   const row = btn.closest('tr');
   const id = row.dataset.id;
   const status = row.querySelector('.status');
+  // Ask before the button turns busy, so the dialog can hand focus back to it.
+  if (btn.dataset.act === 'delete') {
+    const name = row.querySelector('.fwname b').textContent;
+    if (!await ask({ title: `Delete ${name}?`, body: 'It is removed from this list together with its API key. Backups already taken are kept.', ok: 'Delete', danger: true })) return;
+  }
   return busy(btn, async () => {
     status.className = 'status'; status.textContent = 'Working…'; delete status.dataset.auto;
     try {
@@ -1238,7 +1302,6 @@ function fwAction(btn, refresh = true) {
           loadBackups();
         }
       } else if (btn.dataset.act === 'delete') {
-        if (!confirm(`Delete ${row.querySelector('.fwname b').textContent}?`)) { status.textContent = ''; return; }
         await api('DELETE', `/api/firewalls/${id}`);
         loadFirewalls();
       }
@@ -2723,11 +2786,12 @@ function editExisting(name) {
 }
 
 // Deletes an entry from every ticked firewall that has it.
-function deleteExisting(name, btn) {
+async function deleteExisting(name, btn) {
   const on = existingRows().rows.find(([n]) => n === name)?.[1].map((x) => x.fw) || [];
   if (!on.length) return;
   const label = pu.types[pu.type];
-  if (!confirm(`Delete ${label.toLowerCase()} "${name}" from ${on.map((f) => f.name).join(', ')}?\n\nThis changes the live configuration and cannot be undone here.`)) return;
+  if (!await ask({ title: `Delete ${label.toLowerCase()} “${name}”?`, ok: 'Delete', danger: true,
+    body: `From ${on.map((f) => f.name).join(', ')}.\n\nThis changes the live configuration and cannot be undone here.` })) return;
   return busy(btn, async () => {
     try {
       const { results } = await api('POST', '/api/push/delete', { firewalls: on.map((f) => f.id), type: pu.type, name });
@@ -3141,12 +3205,14 @@ $('#puPreview').onclick = (e) => busy(e.target, async () => {
   syncPushBtn();
 });
 
-$('#puGo').onclick = (e) => {
+$('#puGo').onclick = async (e) => {
+  const btn = e.currentTarget;
   const body = pushRequest();
   const what = `${pu.types[body.type]}${body.data.name ? ` "${body.data.name}"` : ''}${body.objects.length ? ` and ${plural(body.objects.length, 'new object')}` : ''}`;
   const vdoms = [...new Set(body.targets.map((t) => t.vdom))].join(', ');
-  if (!confirm(`Push ${what} to ${targetsText(body.targets)} (VDOM ${vdoms})?\n\nThis changes the live configuration.`)) return;
-  return busy(e.target, async () => {
+  if (!await ask({ title: `Push ${what}?`, ok: 'Push',
+    body: `To ${targetsText(body.targets)} (VDOM ${vdoms}).\n\nThis changes the live configuration.` })) return;
+  return busy(btn, async () => {
     $('#puMsg').className = 'msg'; $('#puMsg').textContent = 'Pushing…';
     try {
       const r = await api('POST', '/api/push', body);

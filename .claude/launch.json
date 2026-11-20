@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "claumon-dev",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgres://fortiinv:fortiinv@127.0.0.1:5432/fortiinv",
+        "AUTO_BACKUP_HOURS=0",
+        "AUTO_ROUTES_HOURS=0",
+        "node",
+        "server.js"
+      ],
+      "port": 5555
+    },
+    {
+      "name": "claumon-uitest",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgres://fortiinv:fortiinv@127.0.0.1:5432/fortiinv",
+        "AUTO_BACKUP_HOURS=0",
+        "AUTO_ROUTES_HOURS=0",
+        "PORT=5556",
+        "AUTH_USER=uitest",
+        "AUTH_PASSWORD=uitest-local-only",
+        "node",
+        "server.js"
+      ],
+      "port": 5556
+    }
+  ]
+}

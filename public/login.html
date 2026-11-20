@@ -38,6 +38,7 @@
     background:var(--surface); color:var(--fg); font:inherit; font-size:14px; transition:border-color .12s, box-shadow .12s;
   }
   input:hover { border-color:var(--muted); }
+  input:user-invalid:not(:focus) { border-color:var(--err); }
   input:focus { outline:2px solid transparent; border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring); }
   button {
     height:36px; margin-top:4px; border:1px solid var(--accent); border-radius:var(--radius-sm); background:var(--accent); color:var(--accent-fg);
@@ -59,7 +60,7 @@
     <input name="user" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
   </label>
   <label>Password
-    <input name="password" type="password" autocomplete="current-password" required>
+    <input name="password" type="password" autocomplete="current-password" required aria-describedby="msg">
   </label>
   <p class="msg" id="msg" role="alert"></p>
   <button type="submit" id="submitBtn">Log in</button>
