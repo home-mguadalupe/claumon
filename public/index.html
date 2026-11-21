@@ -567,6 +567,15 @@
   .cvecard .why a { color:inherit; }
   .cvecard td { vertical-align:top; }
   .cvecard td ul { margin:0; padding-left:16px; }
+  /* ---------- threat feeds ---------- */
+  .tfcard summary b { flex:none; min-width:0; font-family:var(--mono); font-size:13px; }
+  .tfcard summary .what { flex:1; min-width:200px; color:var(--muted); font-size:12.5px; font-family:var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tfcard .facts { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:0; }
+  .tfcard .facts dt { color:var(--muted); }
+  .tfcard .facts dd { margin:0; overflow-wrap:anywhere; }
+  .tfcard .issue { display:grid; gap:1px; }
+  .tfcard .sample { margin:4px 0 0; padding:6px 10px; max-height:160px; overflow:auto; font:12px/1.5 var(--mono); background:var(--surface-2); border-radius:var(--radius-sm); white-space:pre-wrap; }
+  .tfcard td { vertical-align:top; }
   .mitcols { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px 20px; margin-top:6px; }
   .mitcols > div { min-width:0; }
   .mitcols h4 { margin:0 0 4px; font-size:12.5px; }
@@ -591,6 +600,7 @@
     <a href="#iplookup" data-view="iplookup">IP lookup</a>
     <a href="#security" data-view="security" class="grp">Security<span class="count" id="secCount" hidden></span></a>
     <a href="#cves" data-view="cves">CVEs<span class="count" id="cveCount" hidden></span></a>
+    <a href="#feeds" data-view="feeds">Threat feeds<span class="count" id="tfCount" hidden></span></a>
     <a href="#compliance" data-view="compliance">Compliance</a>
     <a href="#mitigation" data-view="mitigation">Mitigation<span class="count" id="mitCount" hidden></span></a>
     <a href="#push" data-view="push" class="grp">Push</a>
@@ -901,6 +911,34 @@
   </section>
 </div>
 
+<div class="view" data-view="feeds" hidden>
+  <section aria-labelledby="tfTitle">
+    <div class="page-head">
+      <div>
+        <h2 id="tfTitle">Threat feeds</h2>
+        <div class="sub">External connectors that download lists of IPs, domains, URL categories, malware hashes or MAC addresses: where each one is used in the newest backup, and what the firewall says about it right now.</div>
+      </div>
+      <div class="btns"><button type="button" id="tfLiveBtn" title="Ask each firewall for the last download of every feed (read-only)">Check status now</button></div>
+    </div>
+    <div id="tfMsg" class="msg empty" role="status" aria-live="polite"></div>
+    <div class="wrap"><table class="secsum" id="tfSum" hidden>
+      <thead><tr><th scope="col">Firewall</th><th scope="col" class="n">Feeds</th><th scope="col" class="n" title="Used by at least one enabled policy, directly or through a group or security profile">In use</th><th scope="col" class="n" title="Disabled, unused, fetched over HTTP or with credentials exposed">Need attention</th><th scope="col" class="n" title="Feeds the firewall could not download at the last attempt">Download errors</th><th scope="col">Backup</th></tr></thead>
+      <tbody id="tfSumBody"></tbody>
+    </table></div>
+  </section>
+  <section aria-labelledby="tfListTitle" id="tfListSec" hidden>
+    <h2 id="tfListTitle">Feeds</h2>
+    <div class="toolbar">
+      <label>Firewall<select id="tfFw"><option value="">All firewalls</option></select></label>
+      <label>Type<select id="tfType"><option value="">All types</option></select></label>
+      <label>Show<select id="tfShow"><option value="">All feeds</option><option value="attention">Need attention</option><option value="unused">Not used</option><option value="live-error">Download errors</option></select></label>
+      <label class="grow searchbox">Search<input type="search" id="tfQ" placeholder="Feed, URL, policy, profile, VDOM…" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <div id="tfListMsg" class="msg empty" role="status" aria-live="polite"></div>
+    <div class="secfind" id="tfList"></div>
+  </section>
+</div>
+
 <div class="view" data-view="compliance" hidden>
   <section aria-labelledby="compTitle">
     <div class="page-head">
@@ -1116,7 +1154,7 @@ syncThemeBtn();
 // ---------- routing ----------
 // The hash holds the view plus its state, e.g. #inventory?dev=2&sec=vips&q=10.1
 // so links can be shared and the back button works.
-const VIEWS = ['overview', 'firewalls', 'backups', 'inventory', 'iplookup', 'security', 'cves', 'compliance', 'mitigation', 'push'];
+const VIEWS = ['overview', 'firewalls', 'backups', 'inventory', 'iplookup', 'security', 'cves', 'feeds', 'compliance', 'mitigation', 'push'];
 const route = () => {
   const [view, qs] = location.hash.slice(1).split('?');
   return { view: VIEWS.includes(view) ? view : VIEWS[0], params: new URLSearchParams(qs) };
@@ -1138,7 +1176,7 @@ function showView() {
     if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
-  const VIEW_TITLE = { iplookup: 'IP lookup', cves: 'CVEs' };
+  const VIEW_TITLE = { iplookup: 'IP lookup', cves: 'CVEs', feeds: 'Threat feeds' };
   document.title = `${VIEW_TITLE[view] || view[0].toUpperCase() + view.slice(1)} · FortiGate Backup`;
   // Inventory tables and search results need more room.
   $('main').classList.toggle('wide', !['overview', 'firewalls', 'push'].includes(view));
@@ -1149,6 +1187,7 @@ function showView() {
   if (view === 'iplookup') applyIpState(params);
   if (view === 'security') applySecState(params);
   if (view === 'cves') applyCveState(params);
+  if (view === 'feeds') applyTfState(params);
   if (view === 'compliance') applyCompState(params);
   if (view === 'mitigation') applyMitState(params);
 }
@@ -1158,7 +1197,7 @@ window.addEventListener('hashchange', showView);
 // "/" focuses the search box of the current view, Esc clears it.
 document.addEventListener('keydown', (e) => {
   if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
-    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ', security: '#secQ', cves: '#cveQ', compliance: '#compQ', mitigation: '#mitQ' }[route().view];
+    const box = { backups: '#srQ', inventory: '#invSearch', iplookup: '#ipQ', security: '#secQ', cves: '#cveQ', feeds: '#tfQ', compliance: '#compQ', mitigation: '#mitQ' }[route().view];
     if (box) { e.preventDefault(); $(box).focus(); $(box).select(); }
   }
   if (e.key === 'Escape' && e.target.type === 'search' && e.target.value) {
@@ -1692,6 +1731,16 @@ const SECTIONS = {
     ['Used by', usedBy],
     ['Comments', (r) => esc(r.comments || '')],
   ]},
+  feeds: { label: 'Threat Feeds', xref: (r) => r.name, cols: [
+    ['VDOM', (r) => esc(r.vdom)],
+    ['Name', (r) => `<b>${esc(r.name)}</b>`],
+    ['Type', (r) => esc(r.type) + (r.category ? ` <span class="tag">category ${esc(r.category)}</span>` : '')],
+    ['URL', (r) => mono(r.resource)],
+    ['Refresh', (r) => r.update_method === 'push' ? 'pushed' : esc(`${r.refresh_rate} min`)],
+    ['Status', (r) => `<span class="${r.status === 'disable' ? 'empty' : 'ok'}">${esc(r.status)}</span>`],
+    ['Used by', usedBy],
+    ['Comments', (r) => esc(r.comments || '')],
+  ]},
   sslvpn: { label: 'SSL-VPN', cols: [
     ['VDOM', (r) => esc(r.vdom)],
     ['Status', (r) => `<span class="${r.status === 'disable' ? 'empty' : 'ok'}">${esc(r.status)}</span>`],
@@ -1903,6 +1952,7 @@ const SECTION_ICONS = {
   phase1: 'M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3',
   phase2: 'M11.5 12.5 20 4M17 7l2 2M8 20a4 4 0 1 1 0-8 4 4 0 0 1 0 8z',
   sslvpn: 'M4 5h16v11H4zM8 20h8M12 16v4',
+  feeds: 'M5 5a14 14 0 0 1 14 14M5 11a8 8 0 0 1 8 8M6 19h.01',
 };
 const icon = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="${d}"/></svg>`;
 
@@ -1911,7 +1961,7 @@ const SECTION_GROUPS = [
   ['Overview', ['overview']],
   ['Firewall', ['policies', 'routepolicies']],
   ['Network', ['interfaces', 'routes']],
-  ['Objects', ['addresses', 'addrgrps', 'services', 'servicegrps', 'vips', 'ippools']],
+  ['Objects', ['addresses', 'addrgrps', 'services', 'servicegrps', 'vips', 'ippools', 'feeds']],
   ['VPN', ['phase1', 'phase2', 'sslvpn']],
 ];
 
@@ -2042,10 +2092,13 @@ function closeDetail() {
 
 // ---------- correlation (opened row of a policy / address / group / VIP / IP pool) ----------
 const KIND_SECTION = { address: 'addresses', addrgrp: 'addrgrps', vip: 'vips', ippool: 'ippools',
-  service: 'services', servicegrp: 'servicegrps', policy: 'policies', routepolicy: 'routepolicies' };
+  service: 'services', servicegrp: 'servicegrps', policy: 'policies', routepolicy: 'routepolicies', external: 'feeds' };
 const KIND_LABEL = { address: 'address', addrgrp: 'group', vip: 'VIP', vipgrp: 'VIP group', ippool: 'IP pool',
-  service: 'service', servicegrp: 'service group', external: 'threat feed', unknown: 'not found' };
-const FIELD_LABEL = { srcaddr: 'Source', dstaddr: 'Destination', service: 'Service', poolname: 'NAT IP pool', member: 'Members' };
+  service: 'service', servicegrp: 'service group', external: 'threat feed', webfilter: 'web filter profile',
+  dnsfilter: 'DNS filter profile', antivirus: 'antivirus profile', 'profile-group': 'profile group', unknown: 'not found' };
+const FIELD_LABEL = { srcaddr: 'Source', dstaddr: 'Destination', service: 'Service', poolname: 'NAT IP pool', member: 'Members',
+  'webfilter-profile': 'Web filter', 'dnsfilter-profile': 'DNS filter', 'av-profile': 'Antivirus', 'profile-group': 'Profile group',
+  category: 'Category', 'external-blocklist': 'External blocklist' };
 const FIELD_ORDER = Object.keys(FIELD_LABEL);
 const MAX_REFS = 300;
 
@@ -2080,9 +2133,14 @@ function renderXref(r, x) {
   // Where it is used, directly or through (nested) groups.
   {
     // Groups in between are of the object's own family (address, service or VIP groups).
+    // A threat feed can be reached through groups or security profiles: shown as plain names.
+    const feeds = inv.section === 'feeds';
     const grp = /^service/.test(inv.section) ? 'servicegrp' : inv.section === 'vips' ? 'vipgrp' : 'addrgrp';
-    const via = (u) => u.via.length ? ` <span class="via">via ${u.via.slice().reverse().map((g) => objLink(r, grp, g, g)).join(' › ')}</span>` : '';
-    const line = (u) => u.ref_type === 'policy'
+    const via = (u) => u.via.length ? ` <span class="via">via ${u.via.slice().reverse().map((g) => feeds ? esc(g) : objLink(r, grp, g, g)).join(' › ')}</span>` : '';
+    // A global feed is used in other VDOMs: links and labels use the VDOM of the reference.
+    const multi = new Set(x.usedBy.map((u) => u.vdom)).size > 1 || x.usedBy.some((u) => u.vdom !== r.vdom);
+    const line = (u) => (multi ? `<span class="tag">${esc(u.vdom)}</span> ` : '') + lineIn({ ...r, vdom: u.vdom }, u);
+    const lineIn = (r, u) => u.ref_type === 'policy'
       ? `${objLink(r, 'policy', u.ref_id, `#${u.ref_id}${u.policy_name ? ' ' + u.policy_name : ''}`, u.uuid || u.ref_id)}
          <span class="${u.action === 'accept' ? 'ok' : 'down'}">${esc(u.action)}</span>${u.status === 'disable' ? ' <span class="empty">disabled</span>' : ''}
          <span class="via">${esc(arr(u.srcintf))} → ${esc(arr(u.dstintf))} · ${FIELD_LABEL[u.field] || esc(u.field)}</span>${via(u)}`
@@ -2090,15 +2148,16 @@ function renderXref(r, x) {
       ? `${objLink(r, 'routepolicy', u.ref_id, `seq ${u.ref_id}`, '')} <span class="via">${esc(u.comments || '')} · ${FIELD_LABEL[u.field] || esc(u.field)}</span>${via(u)}`
       : `${objLink(r, u.ref_type, u.ref_id, u.ref_id)} <span class="tag">${KIND_LABEL[u.ref_type]}</span>${via(u)}`;
     for (const [type, title] of [['policy', 'Used in policies'], ['routepolicy', 'Used in policy routes'], ['addrgrp', 'Member of groups'],
-      ['servicegrp', 'Member of service groups'], ['vipgrp', 'Member of VIP groups']]) {
+      ['servicegrp', 'Member of service groups'], ['vipgrp', 'Member of VIP groups'], ['webfilter', 'Web filter profiles'],
+      ['dnsfilter', 'DNS filter profiles'], ['antivirus', 'Antivirus profiles'], ['profile-group', 'Profile groups']]) {
       const list = x.usedBy.filter((u) => u.ref_type === type);
       if (!list.length) continue;
-      const n = new Set(list.map((u) => u.ref_id)).size;
+      const n = new Set(list.map((u) => `${u.vdom}|${u.ref_id}`)).size;
       parts.push(`<div><h4>${title} · ${n}</h4><ul>${list.slice(0, MAX_REFS).map((u) => `<li>${line(u)}</li>`).join('')}${
         list.length > MAX_REFS ? `<li class="more">+${list.length - MAX_REFS} more</li>` : ''}</ul></div>`);
     }
     if (!x.usedBy.length && SECTIONS[inv.section].cols.some(([h]) => h === 'Used by')) {
-      parts.push('<div><h4>Used by</h4><span class="down">Not referenced by any group, policy or policy route.</span></div>');
+      parts.push(`<div><h4>Used by</h4><span class="down">Not referenced by any group, ${feeds ? 'security profile or policy' : 'policy or policy route'}.</span></div>`);
     }
   }
   parts.push(`<div><h4>Settings</h4>${settingsList(x.raw)}</div>`);
@@ -3288,8 +3347,8 @@ async function runIpLookup() {
     const t = r.totals;
     $('#ipMsg').className = 'msg ' + (r.devices.length ? 'ok' : '');
     $('#ipMsg').innerHTML = r.devices.length
-      ? `<b>${esc(r.query)}</b>: ${t.objects} address objects, ${t.policies} policies on ${t.devices} firewalls — click a firewall to see its objects and policies${r.broader ? ' (including broader networks)' : ''}${r.truncated ? ' — object list truncated' : ''}.`
-      : `<b>${esc(r.query)}</b> is not in any address object${r.broader ? '' : ' (try “Include broader networks”)'}.`;
+      ? `<b>${esc(r.query)}</b>: ${t.objects} address objects${t.feedEntries ? `, ${t.feedEntries} threat feed entries` : ''}, ${t.policies} policies on ${t.devices} firewalls — click a firewall to see its objects and policies${r.broader ? ' (including broader networks)' : ''}${r.truncated ? ' — object list truncated' : ''}.`
+      : `<b>${esc(r.query)}</b> is not in any address object or stored threat feed${r.broader ? '' : ' (try “Include broader networks”)'}.`;
     ipData = r; fillIpFilters(); renderIpResults();
   } catch (err) {
     if (err.name === 'AbortError') return;
@@ -3319,7 +3378,7 @@ const IPF = ['ipfFw', 'ipfVdom', 'ipfField', 'ipfAction', 'ipfStatus', 'ipfMatch
 function fillIpFilters() {
   const opts = (sel, vals) => { const cur = $(sel).value; $(sel).innerHTML = '<option value="">All</option>' + vals.map((v) => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join(''); };
   opts('#ipfFw', [...new Set([...ipData.devices, ...(ipRoutes?.devices || [])].map((d) => d.hostname))].sort());
-  opts('#ipfVdom', [...new Set([...ipData.devices.flatMap((d) => d.objects.map((o) => o.vdom)),
+  opts('#ipfVdom', [...new Set([...ipData.devices.flatMap((d) => [...d.objects.map((o) => o.vdom), ...d.policies.map((p) => p.vdom)]),
     ...(ipRoutes?.devices || []).flatMap((d) => [...d.routes.map((x) => x.vdom), ...d.noRoute])])].sort());
   $('#ipFilters').hidden = !ipData.devices.length && !ipRoutes?.devices.length;
 }
@@ -3327,9 +3386,12 @@ function fillIpFilters() {
 function filterIp() {
   const f = Object.fromEntries(IPF.map((id) => [id, $('#' + id).type === 'checkbox' ? $('#' + id).checked : $('#' + id).value.trim().toLowerCase()]));
   return ipData.devices.filter((d) => !f.ipfFw || d.hostname.toLowerCase() === f.ipfFw).map((d) => {
-    const objects = d.objects.filter((o) => (!f.ipfVdom || o.vdom.toLowerCase() === f.ipfVdom) && (!f.ipfMatch || o.match === f.ipfMatch));
+    // A global threat feed belongs to no VDOM: it stays whatever VDOM is picked.
+    const objects = d.objects.filter((o) => (!f.ipfVdom || o.vdom.toLowerCase() === f.ipfVdom || o.vdom === 'global') && (!f.ipfMatch || o.match === f.ipfMatch));
     const names = new Set(objects.map((o) => o.vdom + '|' + o.name));
-    const policies = d.policies.map((p) => ({ ...p, matches: p.matches.filter((m) => names.has(p.vdom + '|' + m.origin) && (!f.ipfField || m.field === f.ipfField)) }))
+    const has = (p, m) => names.has(p.vdom + '|' + m.origin) || names.has('global|' + m.origin);
+    const policies = d.policies.filter((p) => !f.ipfVdom || p.vdom.toLowerCase() === f.ipfVdom)
+      .map((p) => ({ ...p, matches: p.matches.filter((m) => has(p, m) && (!f.ipfField || m.field === f.ipfField)) }))
       .filter((p) => p.matches.length && (!f.ipfAction || p.action === f.ipfAction) && (!f.ipfStatus || (p.status || 'enable') === f.ipfStatus)
         && (!f.ipfText || JSON.stringify([p.ref_id, p.policy_name, p.comments, p.srcintf, p.dstintf, p.srcaddr, p.dstaddr, p.service, p.matches]).toLowerCase().includes(f.ipfText)));
     return { ...d, objects, policies };
@@ -3337,12 +3399,16 @@ function filterIp() {
 }
 function renderIpResults() {
   let r = ipData; const devs = filterIp();
-  const nObj = devs.reduce((n, d) => n + d.objects.length, 0), nPol = devs.reduce((n, d) => n + d.policies.length, 0);
-  const filtered = devs.length !== r.devices.length || nObj !== r.totals.objects || nPol !== r.totals.policies;
-  if (r.devices.length) $('#ipMsg').innerHTML = `<b>${esc(r.query)}</b>: ${nObj} address objects, ${nPol} policies on ${devs.length} firewalls${filtered ? ` (filtered from ${r.totals.objects} / ${r.totals.policies} / ${r.totals.devices})` : ''}${r.broader ? ' · including broader networks' : ''} — click a firewall to see its objects and policies.`;
+  const isFeed = (o) => o.kind === 'external';
+  const nObj = devs.reduce((n, d) => n + d.objects.filter((o) => !isFeed(o)).length, 0), nPol = devs.reduce((n, d) => n + d.policies.length, 0);
+  const nFeed = devs.reduce((n, d) => n + d.objects.filter(isFeed).length, 0);
+  const totFeed = r.totals.feedEntries || 0;
+  const filtered = devs.length !== r.devices.length || nObj !== r.totals.objects || nFeed !== totFeed || nPol !== r.totals.policies;
+  if (r.devices.length) $('#ipMsg').innerHTML = `<b>${esc(r.query)}</b>: ${nObj} address objects${totFeed ? `, ${nFeed} threat feed entries` : ''}, ${nPol} policies on ${devs.length} firewalls${filtered ? ` (filtered from ${r.totals.objects}${totFeed ? ` / ${totFeed}` : ''} / ${r.totals.policies} / ${r.totals.devices})` : ''}${r.broader ? ' · including broader networks' : ''} — click a firewall to see its objects and policies.`;
   r = { ...r, devices: devs };
     const summary = !r.devices.length ? '' : `<div class="wrap gap"><table><thead><tr><th scope="col">Firewall</th><th scope="col">Address objects</th><th scope="col">Policies</th><th scope="col">VDOMs</th></tr></thead><tbody>${
-      r.devices.map((d) => `<tr><td><a href="#ipdev-${d.snapshotId}" data-ipdev="${d.snapshotId}"><b>${esc(d.hostname)}</b></a></td><td>${d.objects.length}</td><td><span class="pill ${d.policies.length ? 'ok' : ''}">${d.policies.length}</span></td><td>${ipList([...new Set(d.objects.map((o) => o.vdom))])}</td></tr>`).join('')
+      r.devices.map((d) => `<tr><td><a href="#ipdev-${d.snapshotId}" data-ipdev="${d.snapshotId}"><b>${esc(d.hostname)}</b></a></td><td>${d.objects.filter((o) => !isFeed(o)).length}${
+        d.objects.some(isFeed) ? ` <span class="tag">+${d.objects.filter(isFeed).length} in threat feeds</span>` : ''}</td><td><span class="pill ${d.policies.length ? 'ok' : ''}">${d.policies.length}</span></td><td>${ipList([...new Set([...d.objects.map((o) => o.vdom), ...d.policies.map((p) => p.vdom)])])}</td></tr>`).join('')
     }</tbody></table></div>`;
     const f = Object.fromEntries(['ipfFw', 'ipfVdom'].map((id) => [id, $('#' + id).value.trim().toLowerCase()]));
     $('#ipResults').innerHTML = renderIpRoutes(f) + (r.devices.length ? '<h3>Address objects and policies</h3>' : '') + summary + r.devices.map(renderIpDevice).join('');
@@ -3357,13 +3423,17 @@ IPF.forEach((id) => $('#' + id).addEventListener(id === 'ipfText' ? 'input' : 'c
 $('#ipfReset').onclick = () => { IPF.forEach((id) => { const el = $('#' + id); if (el.type === 'checkbox') el.checked = false; else el.value = ''; }); ipData && renderIpResults(); };
 function renderIpDevice(d) {
   const pols = d.policies;
+  const addrs = d.objects.filter((o) => o.kind !== 'external');
+  const feedHits = d.objects.filter((o) => o.kind === 'external');
     const sec = (title, n, head, rows) => !n ? '' : `<h3>${title} (${n})</h3><div class="wrap"><table><thead><tr>${head.map((h) => `<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   const how = (p) => p.matches.map((m) => `<div><span class="tag">${esc(m.field)}</span> ${esc(m.origin)}${m.via.length ? ` <span class="ipvia">via ${m.via.map(esc).join(' › ')}</span>` : ''}</div>`).join('');
   return `<details class="ipdev" id="ipdev-${d.snapshotId}"><summary>${esc(d.hostname)} <span class="pill">${esc(d.model || '')}</span>
-      <span class="pill">${d.objects.length} objects</span><span class="pill ${pols.length ? 'ok' : ''}">${pols.length} policies</span>
+      <span class="pill">${addrs.length} objects</span>${feedHits.length ? `<span class="pill warn">${feedHits.length} in threat feeds</span>` : ''}<span class="pill ${pols.length ? 'ok' : ''}">${pols.length} policies</span>
       <span class="sub mono">${esc(d.backupFile)} · ${fmtShort(d.takenAt)}</span></summary><div>
-    ${sec('Address objects', d.objects.length, ['VDOM', 'Name', 'Type', 'Value', 'Match', 'Comment'], d.objects.map((o) =>
+    ${sec('Address objects', addrs.length, ['VDOM', 'Name', 'Type', 'Value', 'Match', 'Comment'], addrs.map((o) =>
       `<tr class="m-${esc(o.match)}"><td>${esc(o.vdom)}</td><td><b>${esc(o.name)}</b></td><td><span class="tag">${esc(o.type || '')}</span></td><td class="mono">${esc(o.value)}</td><td><span class="pill m-${esc(o.match)}">${esc(o.match)}</span></td><td>${esc(o.comment || '')}</td></tr>`).join(''))}
+    ${sec('Threat feed entries', feedHits.length, ['Scope', 'Feed', 'Entry', 'Match', 'List from'], feedHits.map((o) =>
+      `<tr class="m-${esc(o.match)}"><td>${esc(o.vdom)}</td><td><a href="#feeds?q=${encodeURIComponent(o.name)}"><b>${esc(o.name)}</b></a></td><td class="mono">${esc(o.value)}</td><td><span class="pill m-${esc(o.match)}">${esc(o.match)}</span></td><td title="${esc(fmtDate(o.pulled_at))}">${ago(o.pulled_at)}</td></tr>`).join(''))}
     ${sec('Firewall policies', pols.length, ['VDOM', 'ID', 'Name', 'Action', 'From → To', 'Source', 'Destination', 'Service', 'Matched by'], pols.map((p) =>
       `<tr${p.status === 'disable' ? ' class="off" title="disabled"' : ''}><td>${esc(p.vdom)}</td><td class="mono"><b>${esc(p.ref_id)}</b>${p.status === 'disable' ? ' <span class="tag">disabled</span>' : ''}</td><td>${esc(p.policy_name || '')}${p.comments ? `<div class="ipvia">${esc(p.comments)}</div>` : ''}</td>
         <td><span class="pill ${p.action === 'accept' ? 'ok' : ''}">${esc(p.action || '')}</span>${p.nat ? ' <span class="tag">NAT</span>' : ''}</td>
@@ -3669,6 +3739,188 @@ function renderCves() {
 ['cveFw', 'cveVd', 'cveSev'].forEach((id) => $('#' + id).addEventListener('change', () => { syncCveHash(); renderCves(); }));
 $('#cveQ').addEventListener('input', debounce(() => { syncCveHash(); renderCves(); }, 150));
 $('#cveReload').onclick = (e) => busy(e.target, async () => { try { await loadCves(true); renderCves(); } catch {} });
+
+// ---------- threat feeds ----------
+// External connectors from the newest backup of each firewall, with live status on demand.
+const TF_LEVEL = { err: 'err', warn: 'warn', info: 'info' };
+let tfData = null;
+let tfLoading = null;
+const tfLive = new Map(); // firewall id -> live response
+const tfKey = (scope, name) => `${scope ?? ''}|${name}`;
+const tfLiveOf = (d, f) => tfLive.get(d.firewallId)?.feeds.find((x) => tfKey(x.scope, x.name) === tfKey(f.scope, f.name));
+const tfLiveErr = (l) => l && (l.failed || !l.ok);
+const tfAttention = (r, f) => f.issues.some((i) => r.issues[i].level !== 'info');
+
+function setTfCount(r) {
+  const n = r.devices.reduce((t, d) => t + (d.feeds ? d.feeds.filter((f) => tfAttention(r, f) || tfLiveErr(tfLiveOf(d, f))).length : 0), 0);
+  $('#tfCount').hidden = !n;
+  $('#tfCount').textContent = n;
+  $('#tfCount').title = `${plural(n, 'threat feed')} needing attention`;
+}
+
+function loadTf(force) {
+  if (tfData && !force) return Promise.resolve(tfData);
+  if (tfLoading) return tfLoading;
+  $('#tfMsg').className = 'msg empty';
+  $('#tfMsg').textContent = 'Reading backups…';
+  tfLoading = api('GET', '/api/threatfeeds').then((r) => {
+    tfData = r;
+    // With the inventory database the newest stored status shows without asking anyone.
+    for (const d of r.devices) if (d.stored && !(tfLive.get(d.firewallId)?.checkedAt > d.stored.checkedAt)) tfLive.set(d.firewallId, d.stored);
+    setTfCount(r);
+    return r;
+  }).catch((err) => {
+    setMsg($('#tfMsg'), false, esc(err.message));
+    throw err;
+  }).finally(() => { tfLoading = null; });
+  return tfLoading;
+}
+
+// Asks every firewall that has a backup and saved credentials, in parallel.
+async function loadTfLive() {
+  const devs = tfData.devices.filter((d) => d.firewallId && d.feeds?.length);
+  const failed = [];
+  await Promise.all(devs.map(async (d) => {
+    try { tfLive.set(d.firewallId, await api('POST', `/api/firewalls/${encodeURIComponent(d.firewallId)}/threatfeeds`)); }
+    catch (err) { failed.push(`${d.hostname}: ${err.message}`); }
+  }));
+  setTfCount(tfData);
+  return failed;
+}
+
+const tfState = () => ({ fw: $('#tfFw').value, type: $('#tfType').value, show: $('#tfShow').value, q: $('#tfQ').value.trim() });
+const syncTfHash = () => setHash('feeds', Object.entries(tfState()), false);
+
+async function applyTfState(p) {
+  try { await loadTf(); } catch { return; }
+  $('#tfFw').innerHTML = '<option value="">All firewalls</option>' + tfData.devices.map((d) => `<option value="${esc(d.file)}">${esc(d.hostname)}</option>`).join('');
+  const types = new Map(tfData.devices.flatMap((d) => (d.feeds || []).map((f) => [f.type, f.typeLabel])));
+  $('#tfType').innerHTML = '<option value="">All types</option>' + [...types].map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('');
+  const known = (sel, v) => ([...$(sel).options].some((o) => o.value === v) ? v : '');
+  $('#tfFw').value = known('#tfFw', p.get('fw') || '');
+  $('#tfType').value = known('#tfType', p.get('type') || '');
+  $('#tfShow').value = known('#tfShow', p.get('show') || '');
+  $('#tfQ').value = p.get('q') || '';
+  renderTf();
+}
+
+const tfEntries = (n) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
+const tfScope = (f) => (f.scope === 'global' ? 'global' : f.scope ? `VDOM ${f.scope}` : '');
+const tfPolicyCell = (p) => `${esc(p.table)} <b>${esc(p.id)}</b>${p.name ? ` <span class="muted">${esc(p.name)}</span>` : ''}${p.enabled ? '' : ' <span class="tag">disabled</span>'}`;
+
+function tfLiveBlock(l) {
+  if (!l) return '';
+  if (l.failed) return `<div><b>Now:</b> <span class="pill err">could not ask</span> ${esc(l.failed)}${l.failingSince ? ` · since ${esc(fmtShort(l.failingSince))}` : ''}</div>`;
+  const when = [l.lastAttempt && `last attempt ${ago(l.lastAttempt)}`, l.lastUpdate && `list changed ${ago(l.lastUpdate)}`].filter(Boolean).join(' · ');
+  const head = l.ok
+    ? `<span class="pill ok">downloaded</span> ${tfEntries(l.entries)}${l.invalid ? `, <span class="err">${l.invalid} invalid</span>` : ''}${
+      l.overflow ? ' · <span class="pill warn">list truncated: more lines than the firewall accepts</span>' : ''}`
+    : `<span class="pill err">download failed</span> ${esc(l.error || 'error')}${l.errorCode != null ? ` <span class="muted mono">(code ${esc(l.errorCode)})</span>` : ''}${
+      l.failingSince ? ` · <b title="First stored check that found it failing; it may have failed before">failing in every check since ${esc(fmtShort(l.failingSince))}</b>` : ''}`;
+  const sample = (title, rows, more) => rows.length ? `<div>${title}${more > rows.length ? ` (first ${rows.length} of ${more})` : ''}:<pre class="sample">${esc(rows.join('\n'))}</pre></div>` : '';
+  return `<div><b>Now:</b> ${head}${l.fileStatus ? ` · file ${esc(l.fileStatus)}` : ''}${when ? ` · <span class="muted">${when}</span>` : ''}</div>
+    ${sample('<b>Invalid entries</b>', l.invalidSample, l.invalid)}${sample('<b>Entries</b>', l.sample, l.entries - l.invalid)}`;
+}
+
+function renderTf() {
+  const r = tfData;
+  const st = tfState();
+  const hide = (v) => { $('#tfSum').hidden = v; $('#tfListSec').hidden = v; };
+  if (!r.devices.length) {
+    hide(true);
+    $('#tfMsg').className = 'msg empty';
+    $('#tfMsg').textContent = 'No backups yet: back up a firewall first, threat feeds are read from the backup.';
+    return;
+  }
+  hide(false);
+  const total = r.devices.reduce((n, d) => n + (d.counts ? d.counts.total : 0), 0);
+  const checked = [...tfLive.values()].map((x) => new Date(x.checkedAt)).sort((a, b) => b - a)[0];
+  if (!$('#tfMsg').classList.contains('err')) {
+    $('#tfMsg').className = 'msg empty';
+    const auto = r.storing ? (r.feedsHours ? ` Status and entries are stored every ${plural(r.feedsHours, 'hour')}; IP lookup searches the entries.` : ' Automatic checks are off (AUTO_FEEDS_HOURS=0).') : '';
+    $('#tfMsg').textContent = `${plural(r.devices.length, 'firewall')} · ${plural(total, 'threat feed')} in the newest backups. ${checked ? `Live status checked ${ago(checked)}.` : 'Press Check status now to see whether each feed downloads.'}${auto}`;
+  }
+
+  const cell = (n, cls) => `<td class="n${n ? '' : ' zero'}">${n && cls ? `<span class="${cls}">${n}</span>` : n}</td>`;
+  $('#tfSumBody').innerHTML = r.devices.map((d) => {
+    const name = `<td class="fwname"><b>${esc(d.hostname)}</b><span class="mono">${esc(d.device ? [d.device.model, d.device.version && `FortiOS ${d.device.version}`, d.device.multiVdom && 'multi-VDOM'].filter(Boolean).join(' · ') : '')}</span></td>`;
+    const when = `<td class="num" title="${esc(d.file)}">${ago(d.takenAt)}</td>`;
+    if (d.error || !d.counts) return `<tr>${name}<td colspan="4" class="err">${esc(d.error ? `Could not read: ${d.error}` : 'Not checked')}</td>${when}</tr>`;
+    const c = d.counts;
+    const live = tfLive.get(d.firewallId);
+    const errs = live ? `${cell(d.feeds.filter((f) => tfLiveErr(tfLiveOf(d, f))).length, 'sev sev-high')}` : `<td class="n zero" title="${d.firewallId ? 'Not checked yet' : 'This firewall is not in the Firewalls list, so it cannot be asked'}">–</td>`;
+    return `<tr data-file="${esc(d.file)}" aria-selected="${st.fw === d.file}" tabindex="0">${name}${cell(c.total)}${cell(c.inUse)}${cell(c.attention, 'sev sev-medium')}${errs}${when}</tr>`;
+  }).join('');
+  $('#tfSumBody').querySelectorAll('tr[data-file]').forEach((tr) => {
+    const pick = () => { $('#tfFw').value = $('#tfFw').value === tr.dataset.file ? '' : tr.dataset.file; syncTfHash(); renderTf(); };
+    tr.onclick = pick;
+    tr.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+  });
+
+  const q = st.q.toLowerCase();
+  const multi = !st.fw && r.devices.length > 1;
+  const rows = [];
+  for (const d of r.devices) {
+    if (!d.feeds || (st.fw && d.file !== st.fw)) continue;
+    for (const f of d.feeds) {
+      const l = tfLiveOf(d, f);
+      if (st.type && f.type !== st.type) continue;
+      if (st.show === 'attention' && !tfAttention(r, f) && !tfLiveErr(l)) continue;
+      if (st.show === 'unused' && !f.issues.some((i) => ['unused', 'profile-unused', 'policy-disabled'].includes(i))) continue;
+      if (st.show === 'live-error' && !tfLiveErr(l)) continue;
+      const u = f.usedBy;
+      if (q && ![f.name, f.resource, f.typeLabel, f.comments, tfScope(f), d.hostname, l?.error, ...f.issues.map((i) => r.issues[i].title),
+        ...u.policies.flatMap((p) => [p.id, p.name, p.vdom, p.via]), ...u.groups.flatMap((g) => [g.name, g.vdom]),
+        ...u.profiles.flatMap((p) => [p.name, p.kind, p.vdom, ...p.policies.flatMap((x) => [x.id, x.name])])].some((v) => String(v ?? '').toLowerCase().includes(q))) continue;
+      rows.push({ d, f, l });
+    }
+  }
+  const rank = ({ f, l }) => (tfLiveErr(l) ? 0 : f.issues.some((i) => r.issues[i].level === 'err') ? 1 : tfAttention(r, f) ? 2 : 3);
+  rows.sort((a, b) => rank(a) - rank(b) || a.d.hostname.localeCompare(b.d.hostname) || a.f.name.localeCompare(b.f.name));
+  $('#tfListMsg').textContent = rows.length ? '' : total ? 'No threat feeds match the filters.' : 'No threat feeds configured in these backups (Security Fabric > External Connectors).';
+
+  $('#tfList').innerHTML = rows.map(({ d, f, l }, i) => {
+    const u = f.usedBy;
+    const used = [
+      ...u.policies.map((p) => `<tr><td>${esc(p.vdom)}</td><td>${tfPolicyCell(p)}</td><td>${esc(p.field)}${p.via ? ` via group <b>${esc(p.via)}</b>` : ''}${p.action ? ` · ${esc(p.action)}` : ''}</td></tr>`),
+      ...u.profiles.map((p) => `<tr><td>${esc(p.vdom)}</td><td>${esc(p.kind)} profile <b>${esc(p.name)}</b></td><td>${esc(p.action)} · ${p.policies.length ? `applied in ${p.policies.map((x) => `${esc(x.table.toLowerCase())} <b>${esc(x.id)}</b>${x.enabled ? '' : ' (disabled)'}`).join(', ')}` : '<span class="pill warn">not applied in any policy</span>'}</td></tr>`),
+      ...u.groups.filter((g) => !u.policies.some((p) => p.via === g.name && p.vdom === g.vdom)).map((g) => `<tr><td>${esc(g.vdom)}</td><td>Address group <b>${esc(g.name)}</b></td><td class="muted">no policy uses this group</td></tr>`),
+    ].join('');
+    const facts = [
+      ['URL', `<span class="mono">${esc(f.resource || '(none)')}</span>`],
+      ['Type', `${esc(f.typeLabel)}${f.category ? ` · category ${esc(f.category)}` : ''}`],
+      ['Updates', f.updateMethod === 'push' ? 'pushed to the firewall through the API' : `downloaded every ${plural(f.refreshRate, 'minute')}`],
+      ['Login', f.auth ? 'username and password' : 'none'],
+      /^https:/i.test(f.resource) && ['Server certificate', f.serverIdentityCheck === 'none' ? 'not checked' : `checked (${esc(f.serverIdentityCheck)})`],
+      (f.interface || f.sourceIp) && ['Sent from', [f.interface && `interface ${esc(f.interface)}`, f.sourceIp && `source IP ${esc(f.sourceIp)}`].filter(Boolean).join(', ')],
+      f.userAgent && ['User agent', esc(f.userAgent)],
+      f.comments && ['Comments', esc(f.comments)],
+    ].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    const issues = f.issues.map((k) => `<div class="issue"><span><span class="pill ${TF_LEVEL[r.issues[k].level]}">${esc(r.issues[k].title)}</span></span><span class="muted">${esc(r.issues[k].detail)}</span></div>`).join('');
+    const livePill = !l ? '' : l.failed ? '<span class="pill err">could not ask</span>' : l.ok ? `<span class="pill ok">${tfEntries(l.entries)}</span>` : `<span class="pill err">${esc(l.error || 'download failed')}</span>`;
+    return `<details class="tfcard"${i < 3 && rank({ f, l }) < 3 ? ' open' : ''}>
+      <summary>${f.status === 'disable' ? '<span class="pill">disabled</span>' : ''}<b>${esc(f.name)}</b><span class="what">${esc(f.resource)}</span>
+        ${multi ? `<span class="tag">${esc(d.hostname)}</span>` : ''}${tfScope(f) ? `<span class="tag">${esc(tfScope(f))}</span>` : ''}<span class="tag">${esc(f.typeLabel)}</span>${
+        f.issues.filter((k) => r.issues[k].level !== 'info').map((k) => `<span class="pill ${TF_LEVEL[r.issues[k].level]}">${esc(r.issues[k].title)}</span>`).join('')}${livePill}</summary>
+      <div class="why">
+        <dl class="facts">${facts}</dl>
+        ${tfLiveBlock(l)}
+        ${issues}
+      </div>
+      ${used ? `<div class="wrap"><table><thead><tr><th scope="col">VDOM</th><th scope="col">Used by</th><th scope="col">How</th></tr></thead><tbody>${used}</tbody></table></div>` : ''}
+    </details>`;
+  }).join('');
+}
+
+['tfFw', 'tfType', 'tfShow'].forEach((id) => $('#' + id).addEventListener('change', () => { syncTfHash(); renderTf(); }));
+$('#tfQ').addEventListener('input', debounce(() => { syncTfHash(); renderTf(); }, 150));
+$('#tfLiveBtn').onclick = (e) => busy(e.target, async () => {
+  try { await loadTf(true); } catch { return; }
+  const failed = await loadTfLive();
+  $('#tfMsg').className = 'msg empty';
+  if (failed.length) setMsg($('#tfMsg'), false, `Could not ask ${esc(failed.join('; '))}`);
+  renderTf();
+});
 
 // ---------- compliance ----------
 const CSTS = ['fail', 'review', 'pass', 'manual', 'na'];

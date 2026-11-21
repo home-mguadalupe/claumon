@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-11-21 — Threat feeds tab
+
+### New: Threat feeds
+Visibility of the external connectors (Security Fabric > External Connectors > Threat Feeds).
+
+- Every feed in the newest backup of each firewall, global and per VDOM: type, URL (without
+  credentials), refresh, login, certificate check.
+- Where each one is used: policies (directly or through address groups), web filter, DNS
+  filter and antivirus profiles, and the policies applying those profiles.
+- Issues: disabled, not used, profile not applied, only in disabled policies, monitor only,
+  HTTP, credentials over HTTP or in the URL, certificate not checked.
+- **Check status now** reads each feed's last download from the firewall (read-only):
+  error, last attempt, entries and invalid entries, a sample.
+- New API: `GET /api/threatfeeds`, `POST /api/firewalls/:id/threatfeeds`.
+
+### New: threat feeds in the inventory database
+- New table `threat_feeds` per snapshot and an **Objects → Threat Feeds** inventory section
+  whose details show every policy, group and security profile using the feed, in any VDOM.
+- `object_refs` now also holds feeds defined inside a VDOM (they were `unknown`), feeds used
+  by web filter / DNS filter / antivirus profiles, and the profiles applied by policies and
+  profile groups.
+- Feed status and entries are pulled every `AUTO_FEEDS_HOURS` (default 1) into `feed_pulls`,
+  `feed_status` and `feed_entries`; statuses are kept `FEEDS_KEEP_DAYS` (30), entries only
+  for the newest pull. The Threat feeds tab opens on the stored status and says since when a
+  feed fails.
+- **IP lookup** finds addresses inside stored feed entries and the policies using the feed.
+- Backups need re-ingesting (`node scripts/ingest.js backups/*.conf`, or each one from the Backups tab) to fill `threat_feeds`
+  and the new references for snapshots loaded before.
+
 ## 2026-11-17 — Push: FortiOS-style form, objects along the way, administrators
 
 ### Changed: Push tab

@@ -13,11 +13,13 @@ const { audit, compare, CHECKS } = require('./lib/audit');
 const compliance = require('./lib/compliance');
 const mitigation = require('./lib/mitigation');
 const cve = require('./lib/cve');
+const threatfeeds = require('./lib/threatfeeds');
 const auth = require('./lib/auth');
 // Inventory DB is optional: only loaded when DATABASE_URL is set.
 const inventory = process.env.DATABASE_URL ? require('./lib/inventory') : null;
 const iplookup = process.env.DATABASE_URL ? require('./lib/iplookup') : null;
 const routes = process.env.DATABASE_URL ? require('./lib/routes') : null;
+const feedstore = process.env.DATABASE_URL ? require('./lib/feedstore') : null;
 
 const PORT = Number(process.env.PORT) || 5555;
 const BIND = process.env.BIND || '0.0.0.0';
@@ -46,7 +48,7 @@ function validateInput(b) {
 }
 
 // Identifies the device a backup belongs to (hostname from its .meta.json sidecar, else the
-// hostname prefix of the file name) and when it was taken.
+// hostname prefix of the file name), its address and when it was taken.
 function backupDevice(file) {
   const full = path.join(BACKUP_DIR, file);
   let meta = {};
@@ -56,6 +58,7 @@ function backupDevice(file) {
   const taken = meta.takenAt ? new Date(meta.takenAt) : null;
   return {
     device: meta.hostname || file.split('_')[0],
+    host: meta.host || file.split('_')[1],
     mtime: taken && !isNaN(taken) ? taken : fs.statSync(full).mtime,
   };
 }
@@ -320,6 +323,30 @@ async function handle(req, res) {
     return send(res, 200, { source, devices }, req);
   }
 
+  // Threat feeds (external connectors) in the newest backup of each device: where each one
+  // is used and what looks wrong. `firewallId` is set when the device can be asked for
+  // live status; `stored` is its newest stored status (with the inventory database).
+  if (m === 'GET' && p === '/api/threatfeeds') {
+    const byHost = new Map((await firewalls.list()).map((f) => [f.host, f.id]));
+    const stored = feedstore ? await feedstore.latest([...byHost.values()]) : new Map();
+    const devices = [];
+    for (const [device, all] of backupsByDevice()) {
+      const b = all[0];
+      const base = { file: b.file, takenAt: b.mtime, hostname: device, firewallId: byHost.get(b.host) || null };
+      try {
+        const a = threatfeeds.forBackup(path.join(BACKUP_DIR, b.file));
+        const last = stored.get(base.firewallId);
+        // The database keeps single-VDOM feeds under "root"; the analysis has no scope for them.
+        if (last && !a.device.multiVdom) last.feeds.forEach((f) => { if (f.scope === 'root') f.scope = null; });
+        devices.push({ ...base, ...a, stored: last || null });
+      } catch (err) {
+        devices.push({ ...base, error: err.message });
+      }
+    }
+    devices.sort((a, b) => String(a.hostname).localeCompare(String(b.hostname)));
+    return send(res, 200, { issues: threatfeeds.ISSUES, storing: !!feedstore, feedsHours: jobs.status().feedsHours, devices }, req);
+  }
+
   if (p.startsWith('/api/inventory/') && !inventory) {
     return send(res, 503, { error: 'Inventory database not configured (set DATABASE_URL)' });
   }
@@ -500,6 +527,24 @@ async function handle(req, res) {
     return send(res, 200, await push.suggestions(fw, url.searchParams.get('vdom')));
   }
 
+  // What the device reports right now for each threat feed of its newest backup. With the
+  // inventory database the status and entries are stored too (for IP lookup and history).
+  match = p.match(/^\/api\/firewalls\/([\w-]+)\/threatfeeds$/);
+  if (m === 'POST' && match) {
+    const fw = await firewalls.get(match[1]);
+    if (!fw) return send(res, 404, { error: 'Firewall not found' });
+    if (feedstore) {
+      const r = await feedstore.pull(fw);
+      if (!r) return send(res, 404, { error: 'No backup of this firewall yet: back it up first' });
+      return send(res, 200, r, req);
+    }
+    const b = [...backupsByDevice().values()].map((all) => all[0]).filter((x) => x.host === fw.host).sort((x, y) => y.mtime - x.mtime)[0];
+    if (!b) return send(res, 404, { error: 'No backup of this firewall yet: back it up first' });
+    const analysis = threatfeeds.forBackup(path.join(BACKUP_DIR, b.file));
+    const vdoms = analysis.device.multiVdom ? await push.vdoms(fw) : ['root'];
+    return send(res, 200, { file: b.file, ...(await threatfeeds.live(fw, analysis, vdoms)) }, req);
+  }
+
   // Reads the live routing table of every VDOM and stores it in the database.
   match = p.match(/^\/api\/firewalls\/([\w-]+)\/routes$/);
   if (m === 'POST' && match) {
@@ -548,7 +593,8 @@ firewalls
         jobs.start();
         const a = jobs.status();
         console.log(`Automatic backups: ${a.backupHours ? `every ${a.backupHours} h` : 'off'}, `
-          + `routing tables: ${a.routesHours ? `every ${a.routesHours} h` : 'off (needs DATABASE_URL)'}`);
+          + `routing tables: ${a.routesHours ? `every ${a.routesHours} h` : 'off (needs DATABASE_URL)'}, `
+          + `threat feeds: ${a.feedsHours ? `every ${a.feedsHours} h` : feedstore ? 'off' : 'off (needs DATABASE_URL)'}`);
       })
   )
   .catch((err) => {

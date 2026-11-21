@@ -245,11 +245,32 @@ CREATE TABLE IF NOT EXISTS service_groups (
   PRIMARY KEY (snapshot_id, vdom, name)
 );
 
+-- Threat feeds (Security Fabric > External Connectors). `vdom` is 'global' for feeds
+-- defined in config global of a multi-VDOM device; the URL never carries user:password.
+CREATE TABLE IF NOT EXISTS threat_feeds (
+  snapshot_id           int NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+  vdom                  text NOT NULL,
+  name                  text NOT NULL,
+  type                  text NOT NULL,         -- category, address, domain, malware, mac-address
+  category              int,                   -- category / domain feeds: number used in web / DNS filters
+  status                text NOT NULL,
+  update_method         text,                  -- feed (downloaded) or push (through the API)
+  resource              text,
+  refresh_rate          int,                   -- minutes
+  auth                  boolean NOT NULL DEFAULT false,
+  server_identity_check text,
+  comments              text,
+  raw                   jsonb NOT NULL,
+  PRIMARY KEY (snapshot_id, vdom, name)
+);
+
 -- Who references which object: one row per name used in a group's members or a
--- policy's / policy route's address and service fields. `kind` is what the name
+-- policy's / policy route's address and service fields, plus the threat feeds in security
+-- profiles and the profiles applied by policies / profile groups. `kind` is what the name
 -- resolved to (address, addrgrp, vip, vipgrp, ippool, external, service, servicegrp,
--- unknown); `ref_type`/`ref_id` is the referencing object (addrgrp, vipgrp, servicegrp,
--- policy, routepolicy + its name/id).
+-- webfilter, dnsfilter, antivirus, profile-group, unknown); `ref_type`/`ref_id` is the
+-- referencing object (addrgrp, vipgrp, servicegrp, policy, routepolicy, webfilter,
+-- dnsfilter, antivirus, profile-group + its name/id).
 CREATE TABLE IF NOT EXISTS object_refs (
   snapshot_id int NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
   vdom        text NOT NULL,
@@ -300,6 +321,55 @@ CREATE TABLE IF NOT EXISTS routes (
 );
 CREATE INDEX IF NOT EXISTS routes_snapshot_idx ON routes (route_snapshot_id, vdom);
 CREATE INDEX IF NOT EXISTS routes_dst_gist ON routes USING gist (dst inet_ops);
+
+-- Threat feed contents pulled live from the device (monitor API entry-list): one pull per
+-- device and run, the status of every feed in it, and the entries of the newest pull only.
+-- `vdom` is the feed's scope as in threat_feeds ('global', a VDOM, or 'root').
+CREATE TABLE IF NOT EXISTS feed_pulls (
+  id          serial PRIMARY KEY,
+  device_id   int NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  firewall_id text,
+  host        text,
+  backup_file text,                      -- backup the list of feeds came from
+  taken_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS feed_pulls_device_idx ON feed_pulls (device_id, taken_at DESC);
+
+CREATE TABLE IF NOT EXISTS feed_status (
+  pull_id      int NOT NULL REFERENCES feed_pulls(id) ON DELETE CASCADE,
+  vdom         text NOT NULL,
+  name         text NOT NULL,
+  type         text,
+  ok           boolean NOT NULL,         -- the last download worked
+  error        text,                     -- FortiOS error (Timeout, DNS fail, ...) or why it could not be asked
+  error_code   int,
+  file_status  text,
+  last_attempt timestamptz,
+  last_update  timestamptz,
+  entries      int,
+  invalid      int,
+  PRIMARY KEY (pull_id, vdom, name)
+);
+-- The list had more lines than the firewall accepts.
+ALTER TABLE feed_status ADD COLUMN IF NOT EXISTS overflow boolean NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS feed_entries (
+  pull_id  int NOT NULL REFERENCES feed_pulls(id) ON DELETE CASCADE,
+  vdom     text NOT NULL,
+  name     text NOT NULL,
+  entry    text NOT NULL,
+  valid    boolean NOT NULL,
+  subnet   inet,                         -- address feeds: an IP or prefix ...
+  start_ip inet,                         -- ... or a range
+  end_ip   inet
+);
+CREATE INDEX IF NOT EXISTS feed_entries_feed_idx ON feed_entries (pull_id, vdom, name);
+CREATE INDEX IF NOT EXISTS feed_entries_subnet_gist ON feed_entries USING gist (subnet inet_ops);
+CREATE INDEX IF NOT EXISTS feed_entries_range_idx ON feed_entries (start_ip, end_ip) WHERE start_ip IS NOT NULL;
+
+DROP VIEW IF EXISTS latest_feed_pulls;
+CREATE VIEW latest_feed_pulls AS
+SELECT DISTINCT ON (device_id) * FROM feed_pulls ORDER BY device_id, taken_at DESC;
 
 DROP VIEW IF EXISTS latest_route_snapshots;
 CREATE VIEW latest_route_snapshots AS

@@ -90,6 +90,8 @@ existing databases pick up new tables automatically.
 | `AUTO_BACKUP_HOURS` | `24`   | Back up every firewall automatically this often (`0` = off)               |
 | `AUTO_ROUTES_HOURS` | `1`    | Refresh every firewall's routing table this often (`0` = off; needs `DATABASE_URL`) |
 | `ROUTES_KEEP_DAYS`  | `30`   | Hourly routing tables older than this are deleted (the one each inventory snapshot shows is kept) |
+| `AUTO_FEEDS_HOURS`  | `1`    | Store every firewall's threat feed status and entries this often (`0` = off; needs `DATABASE_URL`) |
+| `FEEDS_KEEP_DAYS`   | `30`   | Threat feed statuses older than this are deleted (entries are only kept for the newest pull) |
 | `CVE_REFRESH_HOURS` | `24`   | The CVE list is downloaded from NVD again when older than this (`0` = only with **Update CVE list**) |
 | `NVD_API_KEY`       | *(unset)* | Optional NVD API key; without one NVD allows 5 requests per 30 seconds, which is enough |
 
@@ -140,6 +142,10 @@ and its error shows in its row. The **Backup** button does the same on demand.
   version and build, management IP (the address the backup was taken from), serial,
   VDOMs and last backup. Tick **All firewalls** to see the whole fleet; the VDOM filter
   shows the firewalls that have that VDOM. Click a row for the full VDOM list.
+- **Objects → Threat Feeds** lists the feeds of the backup (global ones under VDOM
+  `global`) with type, URL, refresh and status. Opening one shows every policy, address
+  group and web filter / DNS filter / antivirus profile that uses it, in any VDOM, with
+  the profile groups and policies that apply those profiles.
 - **Network → Routing table** is the live routing table (what `get router info routing-table all`
   shows): every VDOM, IPv4 and IPv6, with gateway, interface, type, distance and priority.
   It is not in the config, so it is read from the device with each backup and refreshed
@@ -173,6 +179,9 @@ and its error shows in its row. The **Backup** button does the same on demand.
 Type an IP or network to see, per firewall: the **route used** for it in each VDOM (longest
 match from the stored routing table; several rows = ECMP; VDOMs with no route are flagged as
 dropping the traffic), the address objects that contain it and the policies using them.
+It also searches the **threat feed entries** stored by the newest feed pull of each firewall
+(see Threat feeds): a match lists the feed, the entry and every policy that uses the feed,
+directly or through address groups, in every VDOM for a global feed.
 
 ### Security
 Audits the newest backup of each firewall for configuration weaknesses and explains each
@@ -237,6 +246,34 @@ newest backup to see whether the affected feature is in use.
   needs (network / local access, login or not), whether it is in the CISA Known Exploited
   Vulnerabilities catalogue, and links to NVD and the Fortinet advisory.
 - The tab's counter and the Overview show critical / high CVEs the backup does not rule out.
+
+### Threat feeds
+Shows the external connectors each firewall downloads lists from (Security Fabric >
+External Connectors > Threat Feeds: IP addresses, domain names, FortiGuard categories,
+malware hashes, MAC addresses).
+
+- **From the newest backup**: every `config system external-resource` entry, global and
+  per VDOM, with its URL (any `user:password` in it is hidden), refresh rate, whether it
+  has a login (the username is not shown), certificate check and source interface / IP.
+- **Where it is used**: firewall, proxy, local-in, shaping and DoS policies (directly or
+  through nested address groups), web filter and DNS filter profiles (by category number,
+  with the filter action) and antivirus profiles (`external-blocklist`), plus the policies
+  those profiles are applied in. Global feeds are looked up in every VDOM.
+- **What looks wrong**: disabled, not used, in a profile no policy applies, only in
+  disabled policies, monitor only, fetched over HTTP (worse with a login), password in the
+  URL, certificate not checked.
+- **Check status now** asks each firewall, read-only, what it got at the last download
+  (`/api/v2/monitor/system/external-resource/entry-list`): success or the error (timeout,
+  DNS failure…), when it last tried, how many entries and how many are invalid, whether
+  the list was longer than the firewall accepts, and a sample. The API admin needs read
+  access to Security Fabric. Firewalls are matched to backups by address; a backup of a
+  firewall no longer in the list can't be asked.
+- **With the database** the same is done every `AUTO_FEEDS_HOURS` (default 1) and stored:
+  the tab opens on the newest stored status, a failing feed says since which check it has
+  failed, and the entries (newest pull only, up to 300000 per feed) are searched by
+  **IP lookup**. Statuses are kept `FEEDS_KEEP_DAYS` (default 30).
+- The tab's counter is the number of feeds needing attention (download errors included
+  once checked).
 
 ### Compliance
 Maps the security checks to the controls of a compliance framework and shows, per firewall,
@@ -351,6 +388,8 @@ lib/fortigate.js     FortiGate REST API client (status, config backup, routing t
 lib/routes.js        routing tables: pull from firewalls, store, look up
 lib/audit.js         security checks on a backup (Security tab)
 lib/cve.js           CVE list from NVD, version matching, feature-in-use check (CVEs tab)
+lib/threatfeeds.js   threat feeds in a backup, where they are used, live status (Threat feeds tab)
+lib/feedstore.js     threat feed status and entries: pull from firewalls, store, history
 lib/compliance.js    CIS / PCI DSS control mappings and scoring (Compliance tab)
 public/report.html   printable compliance report (/report)
 lib/mitigation.js    fix steps and priority of each risky policy (Mitigation tab)
@@ -391,6 +430,8 @@ backups/             backup files (*.conf) + device metadata (*.meta.json)
 | GET    | `/api/firewalls/:id/objects?vdom=`           | Object names on the device (for autocompletion) |
 | GET    | `/api/audit?file=&history=`                  | Security audit of the newest backup per device (or one file) and the changes between its last `history` (default 20) backups |
 | GET    | `/api/cves?refresh=1&cached=1`               | CVEs of the FortiOS version in the newest backup per device, each with a result from the config (`refresh=1` downloads the CVE list again, `cached=1` never downloads) |
+| GET    | `/api/threatfeeds`                           | Threat feeds in the newest backup per device: settings, where each is used, issues and the newest stored status |
+| POST   | `/api/firewalls/:id/threatfeeds`             | Live status of each threat feed of that firewall's newest backup (last download, error, entries); stored when the database is configured |
 | GET    | `/api/compliance?framework=&file=`           | Compliance with `cis` (default) or `pci` of the newest backup per device (or one file): score, counts and every control's status with its evidence |
 | GET    | `/report?framework=&file=`                   | Printable compliance report (HTML, save as PDF from the browser) |
 | GET    | `/api/mitigation`                            | Risky policies of the newest backup per device and how to fix each one |
